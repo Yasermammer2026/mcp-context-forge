@@ -132,141 +132,141 @@ lint:flake8:
   artifacts:
     expire_in: 1 week
 
-# # ===============================================================
-# # TESTING STAGE
-# # ===============================================================
+# ===============================================================
+# TESTING STAGE
+# ===============================================================
 
-# # Test: Unit tests with coverage (Python 3.11)
-# test:unit:py311:
-#   stage: test
-#   image: python:3.11
-#   extends: .python_job
-#   script:
-#     - uv pip install --system --group dev . 2>&1 | tail -20
-#     - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
-#     - echo "Running unit tests (Python 3.11) with coverage..."
-#     - |
-#       uv run pytest \
-#         --ignore=tests/fuzz \
-#         --cov=mcpgateway \
-#         --cov-report=xml \
-#         --cov-report=html \
-#         --cov-report=term \
-#         --cov-branch \
-#         --cov-fail-under=60 \
-#         -v \
-#         --tb=short \
-#         -n 4
-#   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-#   artifacts:
-#     reports:
-#       coverage_report:
-#         coverage_format: cobertura
-#         path: coverage.xml
-#     paths:
-#       - coverage.xml
-#       - htmlcov/
-#     expire_in: 30 days
-#   allow_failure: false
+# Test: Unit tests with coverage (Python 3.11)
+test:unit:py311:
+  stage: test
+  image: python:3.11
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
+    - echo "Running unit tests (Python 3.11) with coverage..."
+    - |
+      uv run pytest \
+        --ignore=tests/fuzz \
+        --cov=mcpgateway \
+        --cov-report=xml \
+        --cov-report=html \
+        --cov-report=term \
+        --cov-branch \
+        --cov-fail-under=60 \
+        -v \
+        --tb=short \
+        -n 4
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+      - htmlcov/
+    expire_in: 30 days
+  allow_failure: false
 
-# # Test: Unit tests with coverage (Python 3.12)
-# test:unit:py312:
-#   stage: test
-#   image: python:3.12
-#   extends: .python_job
-#   script:
-#     - uv pip install --system --group dev . 2>&1 | tail -20
-#     - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
-#     - echo "Running unit tests (Python 3.12) with coverage..."
-#     - |
-#       uv run pytest \
-#         --ignore=tests/fuzz \
-#         --cov=mcpgateway \
-#         --cov-report=xml \
-#         --cov-report=html \
-#         --cov-report=term \
-#         --cov-branch \
-#         --cov-fail-under=60 \
-#         -v \
-#         --tb=short \
-#         -n 4
-#   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-#   artifacts:
-#     reports:
-#       coverage_report:
-#         coverage_format: cobertura
-#         path: coverage.xml
-#     paths:
-#       - coverage.xml
-#       - htmlcov/
-#     expire_in: 30 days
+# Test: Unit tests with coverage (Python 3.12)
+test:unit:py312:
+  stage: test
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
+    - echo "Running unit tests (Python 3.12) with coverage..."
+    - |
+      uv run pytest \
+        --ignore=tests/fuzz \
+        --cov=mcpgateway \
+        --cov-report=xml \
+        --cov-report=html \
+        --cov-report=term \
+        --cov-branch \
+        --cov-fail-under=60 \
+        -v \
+        --tb=short \
+        -n 4
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+      - htmlcov/
+    expire_in: 30 days
 
-# # Test: Unit tests with coverage (Python 3.13)
-# test:unit:py313:
-#   stage: test
-#   image: python:3.13
-#   extends: .python_job
-#   script:
-#     - uv pip install --system --group dev . 2>&1 | tail -20
-#     - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
-#     - echo "Running unit tests (Python 3.13) with coverage..."
-#     - |
-#       uv run pytest \
-#         --ignore=tests/fuzz \
-#         --cov=mcpgateway \
-#         --cov-report=xml \
-#         --cov-report=html \
-#         --cov-report=term \
-#         --cov-branch \
-#         --cov-fail-under=60 \
-#         -v \
-#         --tb=short \
-#         -n 4
-#   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-#   artifacts:
-#     reports:
-#       coverage_report:
-#         coverage_format: cobertura
-#         path: coverage.xml
-#     paths:
-#       - coverage.xml
-#       - htmlcov/
-#     expire_in: 30 days
-#   allow_failure: true  # Python 3.13 is optional
+# Test: Unit tests with coverage (Python 3.13)
+test:unit:py313:
+  stage: test
+  image: python:3.13
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
+    - echo "Running unit tests (Python 3.13) with coverage..."
+    - |
+      uv run pytest \
+        --ignore=tests/fuzz \
+        --cov=mcpgateway \
+        --cov-report=xml \
+        --cov-report=html \
+        --cov-report=term \
+        --cov-branch \
+        --cov-fail-under=60 \
+        -v \
+        --tb=short \
+        -n 4
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+      - htmlcov/
+    expire_in: 30 days
+  allow_failure: true  # Python 3.13 is optional
 
-# # Test: Type checking with mypy
-# test:mypy:
-#   stage: test
-#   image: python:3.12
-#   extends: .python_job
-#   script:
-#     - uv pip install --system --group dev . mypy 2>&1 | tail -20
-#     - echo "Running mypy type checking..."
-#     - mypy mcpgateway/ --config-file pyproject.toml --junit-xml mypy-report.xml || true
-#   artifacts:
-#     reports:
-#       junit: mypy-report.xml
-#     expire_in: 1 week
-#   allow_failure: true
+# Test: Type checking with mypy
+test:mypy:
+  stage: test
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . mypy 2>&1 | tail -20
+    - echo "Running mypy type checking..."
+    - mypy mcpgateway/ --config-file pyproject.toml --junit-xml mypy-report.xml || true
+  artifacts:
+    reports:
+      junit: mypy-report.xml
+    expire_in: 1 week
+  allow_failure: true
 
-# # Test: Doctest coverage
-# test:doctest:
-#   stage: test
-#   image: python:3.12
-#   extends: .python_job
-#   script:
-#     - uv pip install --system --group dev . 2>&1 | tail -20
-#     - echo "Running doctest..."
-#     - |
-#       uv run pytest \
-#         --doctest-modules mcpgateway/ \
-#         --cov=mcpgateway \
-#         --cov-report=term \
-#         --ignore=mcpgateway/utils/pagination.py \
-#         --ignore=mcpgateway/tools/builder/python_deploy.py \
-#         --tb=short \
-#         -n 4
-#   allow_failure: true
+# Test: Doctest coverage
+test:doctest:
+  stage: test
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - echo "Running doctest..."
+    - |
+      uv run pytest \
+        --doctest-modules mcpgateway/ \
+        --cov=mcpgateway \
+        --cov-report=term \
+        --ignore=mcpgateway/utils/pagination.py \
+        --ignore=mcpgateway/tools/builder/python_deploy.py \
+        --tb=short \
+        -n 4
+  allow_failure: true
 
 # ═══════════════════════════════════════════════════════════════
 # BUILD STAGE (Docker Images)
