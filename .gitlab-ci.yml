@@ -245,8 +245,8 @@ test:mypy:
     - echo "Running mypy type checking..."
     - mypy mcpgateway/ --config-file pyproject.toml --junit-xml mypy-report.xml || true
   artifacts:
-    reports:
-      junit: mypy-report.xml
+    paths:
+      - mypy.txt
     expire_in: 1 week
   allow_failure: true
 
