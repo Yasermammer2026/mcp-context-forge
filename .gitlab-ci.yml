@@ -284,6 +284,7 @@ build:docker:main:
     DOCKER_TLS_CERTDIR: ""
   only:
     - main
+    - ci/setup-pipeline
     - tags
   before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
@@ -329,6 +330,7 @@ build:docker:multiplatform:
     - docker:dind
   only:
     - main
+    - ci/setup-pipeline
     - tags
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -354,6 +356,7 @@ security:trivy:
   image: aquasec/trivy:latest
   only:
     - main
+    - ci/setup-pipeline
     - tags
   script:
     - echo "Scanning Docker image with Trivy..."
@@ -432,6 +435,7 @@ deploy:staging:
   image: alpine:latest
   only:
     - main
+    - ci/setup-pipeline
   when: manual
   before_script:
     - apk add --no-cache curl jq
@@ -474,6 +478,7 @@ pages:
   image: python:3.12
   only:
     - main
+    - ci/setup-pipeline
   script:
     - mkdir -p public/coverage public/reports
     - |
