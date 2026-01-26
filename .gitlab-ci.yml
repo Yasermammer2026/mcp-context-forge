@@ -69,6 +69,7 @@ workflow:
     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
       when: never
     - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
 
 # ===============================================================
 # LINT & CODE QUALITY STAGE
@@ -82,9 +83,9 @@ lint:formatting:
   script:
     - uv pip install --system black isort
     - echo "Checking code formatting (Black)..."
-    - black --check --diff mcpgateway/ tests/ scripts/ || true
+    - black --check --diff mcpgateway/ tests/ scripts/ 
     - echo "Checking import sorting (isort)..."
-    - isort --check-only --diff mcpgateway/ tests/ scripts/ || true
+    - isort --check-only --diff mcpgateway/ tests/ scripts/ 
   allow_failure: true
   artifacts:
     reports:
@@ -99,8 +100,8 @@ lint:security-bandit:
   script:
     - uv pip install --system bandit
     - echo "Running Bandit security analysis..."
-    - bandit -r mcpgateway/ -f json -o bandit-report.json --severity-level medium || true
-    - bandit -r mcpgateway/ --severity-level medium || true
+    - bandit -r mcpgateway/ -f json -o bandit-report.json --severity-level medium 
+    - bandit -r mcpgateway/ --severity-level medium 
   artifacts:
     reports:
       sast: bandit-report.json
@@ -116,7 +117,7 @@ lint:yaml:
   script:
     - pip install --upgrade pip yamllint
     - echo "Validating YAML files..."
-    - yamllint -c .yamllint docker-compose*.yml docker-compose*.yaml .github/workflows/*.yml .gitlab-ci.yml || true
+    - yamllint -c .yamllint docker-compose*.yml docker-compose*.yaml .github/workflows/*.yml .gitlab-ci.yml 
   allow_failure: true
 
 # Lint: Flake8
@@ -127,7 +128,7 @@ lint:flake8:
   script:
     - uv pip install --system flake8 flake8-bugbear flake8-async
     - echo "Running Flake8..."
-    - flake8 mcpgateway/ tests/ scripts/ --config .flake8 --count || true
+    - flake8 mcpgateway/ tests/ scripts/ --config .flake8 --count 
   allow_failure: true
   artifacts:
     expire_in: 1 week
@@ -296,31 +297,6 @@ build:docker:main:
         --cache=true
 
 
-# Build Docker image for release tags
-build:docker:release:
-  stage: build
-  image: docker:latest
-  services:
-    - docker:dind
-  only:
-    - tags
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - echo "Building Docker image for release tag $CI_COMMIT_TAG..."
-    - |
-      docker build \
-        -t $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG \
-        -t $CI_REGISTRY_IMAGE:latest \
-        --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
-        --build-arg VCS_REF=$CI_COMMIT_SHA \
-        --build-arg VERSION=$CI_COMMIT_TAG \
-        -f Containerfile \
-        .
-    - echo "Pushing release image..."
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
-    - docker push $CI_REGISTRY_IMAGE:latest
-
 # Build multi-platform Docker image (for main branch only)
 build:docker:multiplatform:
   stage: build
@@ -380,12 +356,13 @@ security:trivy:
     - echo "Scanning Docker image with Trivy..."
     - trivy --version
     - |
+      IMAGE_TAG="${CI_COMMIT_TAG:-latest}"
       trivy image \
         --severity HIGH,CRITICAL \
         --exit-code 0 \
         --format json \
         --output trivy-report.json \
-        "$CI_REGISTRY_IMAGE:latest" || true
+        "$CI_REGISTRY_IMAGE:$IMAGE_TAG" || true
 
   artifacts:
     reports:
