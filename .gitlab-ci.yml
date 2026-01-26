@@ -49,6 +49,11 @@ cache:
     - .ruff_cache/
     - .mypy_cache/
 
+.python_job:
+  before_script:
+    - python --version
+    - pip install --upgrade pip setuptools wheel uv
+
 # Define which branches/tags trigger pipelines
 workflow:
   rules:
@@ -65,10 +70,9 @@ workflow:
 lint:formatting:
   stage: code-quality
   image: python:3.12
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install black isort
+  extends: .python_job
   script:
+    - uv pip install --system black isort
     - echo "Checking code formatting (Black)..."
     - black --check --diff mcpgateway/ tests/ scripts/ || true
     - echo "Checking import sorting (isort)..."
@@ -83,10 +87,9 @@ lint:formatting:
 lint:security-bandit:
   stage: code-quality
   image: python:3.12
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install bandit
+  extends: .python_job
   script:
+    - uv pip install --system bandit
     - echo "Running Bandit security analysis..."
     - bandit -r mcpgateway/ --format json --output bandit-report.json -ll --severity-level medium || true
     - bandit -r mcpgateway/ -ll --severity-level medium
@@ -102,9 +105,8 @@ lint:security-bandit:
 lint:yaml:
   stage: code-quality
   image: python:3.12
-  before_script:
-    - pip install --upgrade pip yamllint
   script:
+    - pip install --upgrade pip yamllint
     - echo "Validating YAML files..."
     - yamllint -c .yamllint docker-compose*.yml docker-compose*.yaml .github/workflows/*.yml .gitlab-ci.yml || true
   allow_failure: true
@@ -113,10 +115,9 @@ lint:yaml:
 lint:flake8:
   stage: code-quality
   image: python:3.12
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install flake8 flake8-bugbear flake8-async
+  extends: .python_job
   script:
+    - uv pip install --system flake8 flake8-bugbear flake8-async
     - echo "Running Flake8..."
     - flake8 mcpgateway/ tests/ scripts/ --config .flake8 --count || true
   allow_failure: true
@@ -131,10 +132,10 @@ lint:flake8:
 test:unit:py311:
   stage: test
   image: python:3.11
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install --group dev . 2>&1 | tail -20
+  extends: .python_job
   script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
     - echo "Running unit tests (Python 3.11) with coverage..."
     - |
       uv run pytest \
@@ -164,10 +165,10 @@ test:unit:py311:
 test:unit:py312:
   stage: test
   image: python:3.12
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install --group dev . 2>&1 | tail -20
+  extends: .python_job
   script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
     - echo "Running unit tests (Python 3.12) with coverage..."
     - |
       uv run pytest \
@@ -196,10 +197,10 @@ test:unit:py312:
 test:unit:py313:
   stage: test
   image: python:3.13
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install --group dev . 2>&1 | tail -20
+  extends: .python_job
   script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
     - echo "Running unit tests (Python 3.13) with coverage..."
     - |
       uv run pytest \
@@ -229,10 +230,9 @@ test:unit:py313:
 test:mypy:
   stage: test
   image: python:3.12
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install --group dev . mypy 2>&1 | tail -20
+  extends: .python_job
   script:
+    - uv pip install --system --group dev . mypy 2>&1 | tail -20
     - echo "Running mypy type checking..."
     - mypy mcpgateway/ --config-file pyproject.toml --junit-xml mypy-report.xml || true
   artifacts:
@@ -245,10 +245,10 @@ test:mypy:
 test:doctest:
   stage: test
   image: python:3.12
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install --group dev . 2>&1 | tail -20
+  extends: .python_job
   script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
     - echo "Running doctest..."
     - |
       uv run pytest \
@@ -388,10 +388,9 @@ security:semgrep:
 security:safety:
   stage: security
   image: python:3.12
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install safety 2>&1 | tail -10
+  extends: .python_job
   script:
+    - uv pip install --system safety 2>&1 | tail -10
     - echo "Checking dependencies for known vulnerabilities..."
     - safety check --json --output safety-report.json || true
   artifacts:
@@ -404,10 +403,9 @@ security:safety:
 security:license:
   stage: security
   image: python:3.12
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install pip-licenses 2>&1 | tail -10
+  extends: .python_job
   script:
+    - uv pip install --system pip-licenses 2>&1 | tail -10
     - echo "Checking license compliance..."
     - pip-licenses --format=json --with-urls --output-file licenses-report.json || true
   artifacts:
@@ -542,10 +540,9 @@ test:smoke:
   stage: test
   image: python:3.12
   when: manual
-  before_script:
-    - pip install --upgrade pip setuptools wheel uv
-    - uv pip install --group dev . 2>&1 | tail -20
+  extends: .python_job
   script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
     - echo "Running smoke tests..."
     - python smoketest.py --verbose || true
   allow_failure: true
