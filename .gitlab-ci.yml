@@ -275,27 +275,26 @@ test:doctest:
 # Build Docker image for main branch
 build:docker:main:
   stage: build
-  image: docker:latest
-  services:
-    - name: docker:dind
-      command: ["--tls=false"]
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
   only:
     - main
     - ci/setup-pipeline
     - tags
-  before_script:
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
   script:
-    - docker build -t "$CI_REGISTRY_IMAGE:latest" -f Containerfile .
-    - docker push "$CI_REGISTRY_IMAGE:latest"
+    - mkdir -p /kaniko/.docker
+    - |
+      cat > /kaniko/.docker/config.json <<EOF
+      {"auths":{"${CI_REGISTRY}":{"username":"${CI_REGISTRY_USER}","password":"${CI_REGISTRY_PASSWORD}"}}}
+      EOF
+    - |
+      /kaniko/executor \
+        --context "${CI_PROJECT_DIR}" \
+        --dockerfile "${CI_PROJECT_DIR}/Containerfile" \
+        --destination "${CI_REGISTRY_IMAGE}:latest" \
+        --cache=true
 
-  artifacts:
-    reports:
-      dotenv: build.env
-    expire_in: 1 week
 
 # Build Docker image for release tags
 build:docker:release:
@@ -325,26 +324,39 @@ build:docker:release:
 # Build multi-platform Docker image (for main branch only)
 build:docker:multiplatform:
   stage: build
-  image: docker:latest
-  services:
-    - docker:dind
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
   only:
     - main
     - ci/setup-pipeline
     - tags
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker buildx create --use --name multibuilder || docker buildx use multibuilder
+  allow_failure: true
   script:
-    - echo "Building multi-platform Docker image..."
+    - mkdir -p /kaniko/.docker
     - |
-      docker buildx build \
-        --platform linux/amd64,linux/arm64 \
-        -t $CI_REGISTRY_IMAGE:multiplatform \
-        --push \
-        -f Containerfile \
-        .
-  allow_failure: true  # Multi-platform builds may not always be available
+      cat > /kaniko/.docker/config.json <<EOF
+      {"auths":{"$CI_REGISTRY":{"username":"$CI_REGISTRY_USER","password":"$CI_REGISTRY_PASSWORD"}}}
+      EOF
+
+    # amd64
+    - |
+      /kaniko/executor \
+        --context "$CI_PROJECT_DIR" \
+        --dockerfile "$CI_PROJECT_DIR/Containerfile" \
+        --custom-platform=linux/amd64 \
+        --destination "$CI_REGISTRY_IMAGE:multiplatform-amd64" \
+        --cache=true
+
+    # arm64
+    - |
+      /kaniko/executor \
+        --context "$CI_PROJECT_DIR" \
+        --dockerfile "$CI_PROJECT_DIR/Containerfile" \
+        --custom-platform=linux/arm64 \
+        --destination "$CI_REGISTRY_IMAGE:multiplatform-arm64" \
+        --cache=true
+
 
 # ═══════════════════════════════════════════════════════════════
 # SECURITY STAGE
