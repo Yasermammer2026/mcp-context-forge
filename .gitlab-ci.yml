@@ -1,0 +1,564 @@
+# ===============================================================
+# GitLab CI/CD Pipeline Configuration for MCP Gateway
+# featuring:
+#   - Multi-stage pipeline (lint, test, build, deploy)
+#   - Python 3.11, 3.12, 3.13 matrix testing
+#   - Code quality checks (flake8, bandit, mypy, pylint)
+#   - Unit tests with coverage reporting
+#   - Docker image building and scanning
+#   - Security scanning (CodeQL, SAST)
+#   - Artifact management
+#
+# Environment Variables to Set in GitLab:
+#   - REGISTRY_URL: Docker registry URL (e.g., registry.gitlab.com)
+#   - REGISTRY_USER: Registry username
+#   - REGISTRY_PASSWORD: Registry password/token
+#   - SONAR_HOST_URL: SonarQube host (optional)
+#   - SONAR_TOKEN: SonarQube token (optional)
+#
+# ===============================================================
+
+# Global configuration
+default:
+  tags:
+    - docker
+    
+stages:
+  - code-quality
+  - test
+  - build
+  - security
+  - deploy
+
+# Global variables
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  DOCKER_BUILDKIT: "1"
+  DOCKER_TLS_CERTDIR: "/certs"
+  REGISTRY_IMAGE: "${CI_REGISTRY_IMAGE}"
+  REGISTRY_URL: "${CI_REGISTRY}"
+  PYTHONUNBUFFERED: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  UV_VERSION: "0.9.2"
+
+# Cache configuration
+cache:
+  paths:
+    - .cache/pip
+    - .venv/
+    - .ruff_cache/
+    - .mypy_cache/
+
+.python_job:
+  before_script:
+    - python --version
+    - |
+      if command -v apt-get >/dev/null; then
+        apt-get update && apt-get install -y --no-install-recommends jq
+      elif command -v apk >/dev/null; then
+        apk add --no-cache jq
+      else
+        echo "No package manager found to install jq" && exit 1
+      fi
+    - pip install --upgrade pip setuptools wheel uv
+
+# Define which branches/tags trigger pipelines
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
+# ===============================================================
+# LINT & CODE QUALITY STAGE
+# ===============================================================
+
+# Lint: Formatting (Black, isort, trailing-whitespace)
+lint:formatting:
+  stage: code-quality
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system black isort
+    - echo "Checking code formatting (Black)..."
+    - black --check --diff mcpgateway/ tests/ scripts/ || true
+    - echo "Checking import sorting (isort)..."
+    - isort --check-only --diff mcpgateway/ tests/ scripts/ || true
+  allow_failure: true
+  artifacts:
+    reports:
+      codequality: code-quality.json
+    expire_in: 1 week
+
+# Lint: Security analysis with Bandit
+lint:security-bandit:
+  stage: code-quality
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system bandit
+    - echo "Running Bandit security analysis..."
+    - bandit -r mcpgateway/ -f json -o bandit-report.json --severity-level medium || true
+    - bandit -r mcpgateway/ --severity-level medium || true
+  artifacts:
+    reports:
+      sast: bandit-report.json
+    paths:
+      - bandit-report.json
+    expire_in: 1 week
+  allow_failure: true
+
+# Lint: YAML validation
+lint:yaml:
+  stage: code-quality
+  image: python:3.12
+  script:
+    - pip install --upgrade pip yamllint
+    - echo "Validating YAML files..."
+    - yamllint -c .yamllint docker-compose*.yml docker-compose*.yaml .github/workflows/*.yml .gitlab-ci.yml || true
+  allow_failure: true
+
+# Lint: Flake8
+lint:flake8:
+  stage: code-quality
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system flake8 flake8-bugbear flake8-async
+    - echo "Running Flake8..."
+    - flake8 mcpgateway/ tests/ scripts/ --config .flake8 --count || true 
+  allow_failure: true
+  artifacts:
+    expire_in: 1 week
+
+# ===============================================================
+# TESTING STAGE
+# ===============================================================
+
+# Test: Unit tests with coverage (Python 3.11)
+test:unit:py311:
+  stage: test
+  image: python:3.11
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
+    - echo "Running unit tests (Python 3.11) with coverage..."
+    - |
+      uv run pytest \
+        --ignore=tests/fuzz \
+        --cov=mcpgateway \
+        --cov-report=xml \
+        --cov-report=html \
+        --cov-report=term \
+        --cov-branch \
+        --cov-fail-under=60 \
+        -v \
+        --tb=short \
+        -n 4
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+      - htmlcov/
+    expire_in: 30 days
+  allow_failure: false
+
+# Test: Unit tests with coverage (Python 3.12)
+test:unit:py312:
+  stage: test
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
+    - echo "Running unit tests (Python 3.12) with coverage..."
+    - |
+      uv run pytest \
+        --ignore=tests/fuzz \
+        --cov=mcpgateway \
+        --cov-report=xml \
+        --cov-report=html \
+        --cov-report=term \
+        --cov-branch \
+        --cov-fail-under=60 \
+        -v \
+        --tb=short \
+        -n 4
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+      - htmlcov/
+    expire_in: 30 days
+
+# Test: Unit tests with coverage (Python 3.13)
+test:unit:py313:
+  stage: test
+  image: python:3.13
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import xdist; print('pytest-xdist OK')" || (echo "pytest-xdist missing"; exit 1)
+    - echo "Running unit tests (Python 3.13) with coverage..."
+    - |
+      uv run pytest \
+        --ignore=tests/fuzz \
+        --cov=mcpgateway \
+        --cov-report=xml \
+        --cov-report=html \
+        --cov-report=term \
+        --cov-branch \
+        --cov-fail-under=60 \
+        -v \
+        --tb=short \
+        -n 4
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+      - htmlcov/
+    expire_in: 30 days
+  allow_failure: true  # Python 3.13 is optional
+
+# Test: Type checking with mypy
+test:mypy:
+  stage: test
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . mypy 2>&1 | tail -20
+    - echo "Running mypy type checking..."
+    - mypy mcpgateway/ --config-file pyproject.toml --junit-xml mypy-report.xml || true
+  artifacts:
+    paths:
+      - mypy.txt
+    expire_in: 1 week
+  allow_failure: true
+
+# Test: Doctest coverage
+test:doctest:
+  stage: test
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - echo "Running doctest..."
+    - |
+      uv run pytest \
+        --doctest-modules mcpgateway/ \
+        --cov=mcpgateway \
+        --cov-report=term \
+        --ignore=mcpgateway/utils/pagination.py \
+        --ignore=mcpgateway/tools/builder/python_deploy.py \
+        --tb=short \
+        -n 4
+  allow_failure: true
+
+# ═══════════════════════════════════════════════════════════════
+# BUILD STAGE (Docker Images)
+# ═══════════════════════════════════════════════════════════════
+
+# Build Docker image for main branch
+build:docker:main:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  only:
+    - main
+    - ci/setup-pipeline
+    - tags
+  script:
+    - mkdir -p /kaniko/.docker
+    - |
+      cat > /kaniko/.docker/config.json <<EOF
+      {"auths":{"${CI_REGISTRY}":{"username":"${CI_REGISTRY_USER}","password":"${CI_REGISTRY_PASSWORD}"}}}
+      EOF
+    - |
+      /kaniko/executor \
+        --context "${CI_PROJECT_DIR}" \
+        --dockerfile "${CI_PROJECT_DIR}/Containerfile" \
+        --destination "${CI_REGISTRY_IMAGE}:latest" \
+        --cache=true
+
+
+# Build multi-platform Docker image (for main branch only)
+build:docker:multiplatform:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - if: '$CI_COMMIT_BRANCH == "ci/setup-pipeline"'
+      when: on_success
+    - if: '$CI_COMMIT_TAG'
+      when: on_success
+  script:
+    - mkdir -p /kaniko/.docker
+    - |
+      cat > /kaniko/.docker/config.json <<EOF
+      {"auths":{"$CI_REGISTRY":{"username":"$CI_REGISTRY_USER","password":"$CI_REGISTRY_PASSWORD"}}}
+      EOF
+
+    - |
+      /kaniko/executor \
+        --context "$CI_PROJECT_DIR" \
+        --dockerfile "$CI_PROJECT_DIR/Containerfile" \
+        --destination "$CI_REGISTRY_IMAGE:multiplatform-amd64" \
+        --cache=true
+
+    - echo "Skipping arm64 build on non-arm runner (exec format error)."
+
+
+# ═══════════════════════════════════════════════════════════════
+# SECURITY STAGE
+# ═══════════════════════════════════════════════════════════════
+
+# Scan Docker image for vulnerabilities (Trivy)
+security:trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]   
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "ci/setup-pipeline"'
+    - if: '$CI_COMMIT_TAG'
+  needs:
+
+    - job: build:docker:main
+      optional: true
+    - job: build:docker:multiplatform
+      optional: true
+
+  variables:
+    TRIVY_CACHE_DIR: "$CI_PROJECT_DIR/.cache/trivy"
+
+  script:
+    - echo "Scanning Docker image with Trivy..."
+    - trivy --version
+    - |
+      IMAGE_TAG="${CI_COMMIT_TAG:-latest}"
+      trivy image \
+        --severity HIGH,CRITICAL \
+        --exit-code 0 \
+        --format json \
+        --output trivy-report.json \
+        "$CI_REGISTRY_IMAGE:$IMAGE_TAG" || true
+
+  artifacts:
+    reports:
+      container_scanning: trivy-report.json
+    paths:
+      - trivy-report.json
+    expire_in: 30 days
+
+  allow_failure: true
+
+
+# SAST: Semgrep static analysis
+security:semgrep:
+  stage: security
+  image: returntocorp/semgrep
+  script:
+    - echo "Running Semgrep SAST analysis..."
+    - |
+      semgrep \
+        --config=semgrep.yml \
+        --json \
+        --output=semgrep-report.json \
+        mcpgateway/ || true
+  artifacts:
+    reports:
+      sast: semgrep-report.json
+    paths:
+      - semgrep-report.json
+    expire_in: 30 days
+  allow_failure: true
+
+# Dependency scanning: Safety
+security:safety:
+  stage: security
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system safety 2>&1 | tail -10
+    - echo "Checking dependencies for known vulnerabilities..."
+    - safety check --json --output safety-report.json || true
+  artifacts:
+    paths:
+      - safety-report.json
+    expire_in: 30 days
+  allow_failure: true
+
+# License compliance check
+security:license:
+  stage: security
+  image: python:3.12
+  extends: .python_job
+  script:
+    - uv pip install --system pip-licenses 2>&1 | tail -10
+    - echo "Checking license compliance..."
+    - pip-licenses --format=json --with-urls --output-file licenses-report.json || true
+  artifacts:
+    paths:
+      - licenses-report.json
+    expire_in: 30 days
+  allow_failure: true
+
+# ═══════════════════════════════════════════════════════════════
+# DEPLOY STAGE 
+# ═══════════════════════════════════════════════════════════════
+
+# Deploy to staging (manual trigger on main branch)
+deploy:staging:
+  stage: deploy
+  image: debian:bookworm-slim
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "ci/setup-pipeline"'
+  when: manual
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends curl jq ca-certificates
+  script:
+    - echo "Deploying to staging environment..."
+    - echo "Placeholder for actual deployment logic (Helm, kubectl, etc.)"
+    - echo "Image - $CI_REGISTRY_IMAGE:latest"
+    - echo "Update your actual deployment commands here"
+  environment:
+    name: staging
+    url: https://staging.example.com
+  allow_failure: false
+
+# Deploy to production (manual trigger on tags)
+deploy:production:
+  stage: deploy
+  image: debian:bookworm-slim
+  only:
+    - ci/setup-pipeline
+    - tags
+  when: manual  
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends curl jq ca-certificates
+  script:
+    - echo "Deploying to production environment..."
+    - echo "Placeholder for actual deployment logic (Helm, kubectl, etc.)"
+    - echo "Image - $CI_REGISTRY_IMAGE:${CI_COMMIT_TAG:-latest}"
+    - echo "Update your actual deployment commands here"
+  environment:
+    name: production
+    url: https://api.example.com
+  allow_failure: false
+
+
+# ═══════════════════════════════════════════════════════════════
+#  REPORTING STAGE
+# ═══════════════════════════════════════════════════════════════
+
+# Generate pipeline reports
+pages:
+  stage: build
+  image: python:3.12
+  only:
+    - main
+    - ci/setup-pipeline
+  script:
+    - mkdir -p public/coverage public/reports
+    - |
+      if [ -d htmlcov ]; then
+        cp -r htmlcov/* public/coverage/
+        echo "Coverage report available"
+      fi
+    - |
+      echo "<!DOCTYPE html>
+      <html>
+      <head>
+        <title>MCP Gateway CI/CD Reports</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+          h1 { color: #333; }
+          .report { background: white; padding: 20px; margin: 10px 0; border-radius: 5px; }
+          a { color: #0066cc; text-decoration: none; }
+          a:hover { text-decoration: underline; }
+          .status { padding: 10px; border-radius: 3px; margin: 5px 0; }
+          .success { background: #d4edda; color: #155724; }
+          .info { background: #d1ecf1; color: #0c5460; }
+        </style>
+      </head>
+      <body>
+        <h1>MCP Gateway - CI/CD Pipeline Reports</h1>
+        <div class='report'>
+          <h2>Test Coverage</h2>
+          <p><a href='coverage/index.html'>View Detailed Coverage Report</a></p>
+          <p class='status info'>Coverage reports are generated from unit tests</p>
+        </div>
+        <div class='report'>
+          <h2>Security Scanning</h2>
+          <p>Security reports are available as artifacts in the CI/CD pipeline</p>
+          <ul>
+            <li>Trivy: Container image vulnerability scanning</li>
+            <li>Bandit: Python security linting</li>
+            <li>Semgrep: Static code analysis</li>
+            <li>Safety: Dependency vulnerability checking</li>
+          </ul>
+        </div>
+        <div class='report'>
+          <h2>Linting & Quality</h2>
+          <p>Code quality checks are run on every commit</p>
+          <ul>
+            <li>Black: Code formatting</li>
+            <li>isort: Import sorting</li>
+            <li>Flake8: PEP8 compliance</li>
+            <li>mypy: Type checking</li>
+          </ul>
+        </div>
+        <div class='report'>
+          <h2>Test Results</h2>
+          <p class='status success'>Unit tests run on Python 3.11, 3.12, 3.13</p>
+          <p>Check the pipeline job logs for detailed test results</p>
+        </div>
+      </body>
+      </html>" > public/index.html
+  artifacts:
+    paths:
+      - public
+    expire_in: 30 days
+  dependencies:
+    - test:unit:py312
+  allow_failure: true
+
+# ═══════════════════════════════════════════════════════════════
+#  HELPER JOBS (triggered manually)
+# ═══════════════════════════════════════════════════════════════
+
+# Smoke test job
+test:smoke:
+  stage: test
+  image: python:3.12
+  when: manual
+  extends: .python_job
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - echo "Running smoke tests..."
+    - python smoketest.py --verbose || true
+  allow_failure: true
