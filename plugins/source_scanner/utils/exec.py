@@ -11,8 +11,7 @@ from __future__ import annotations
 
 # Standard
 import asyncio
-import subprocess
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 
 class ExecResult:
@@ -52,24 +51,52 @@ async def run_command(
     cwd: Optional[str] = None,
     env: Optional[dict] = None,
 ) -> ExecResult:
-    """Execute a command with timeout.
+    """Execute a command with optional timeout.
 
-    Args:
-        cmd: Command and arguments as list.
-        timeout_seconds: Timeout in seconds (None for no timeout).
-        cwd: Working directory for the command.
-        env: Environment variables.
-
-    Returns:
-        ExecResult with returncode, stdout, stderr, and timeout status.
-
-    Raises:
-        asyncio.TimeoutError: If command times out (only if timeout_seconds is set).
+    Notes:
+        This utility never raises on timeout; it returns ExecResult(timed_out=True)
+        and captures any partial stdout/stderr where possible. Callers decide how
+        to map failures into domain-specific exceptions.
     """
-    # TODO: Create subprocess using asyncio.create_subprocess_exec
-    # TODO: Set stdout=PIPE, stderr=PIPE, cwd=cwd, env=env
-    # TODO: If timeout_seconds is set, use asyncio.wait_for
-    # TODO: Capture stdout, stderr
-    # TODO: Handle timeout gracefully (timed_out=True)
-    # TODO: Return ExecResult with all captured data
-    raise NotImplementedError("run_command not implemented")
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=cwd,
+        env=env,
+    )
+
+    try:
+        if timeout_seconds is not None:
+            stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout_seconds)
+        else:
+            stdout_b, stderr_b = await proc.communicate()
+
+        stdout = (stdout_b or b"").decode("utf-8", errors="replace")
+        stderr = (stderr_b or b"").decode("utf-8", errors="replace")
+        return ExecResult(returncode=proc.returncode or 0, stdout=stdout, stderr=stderr, timed_out=False)
+
+    except asyncio.TimeoutError:
+        # Mark timeout and ensure process is terminated
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+
+        # Best-effort: wait shortly for pipes to flush
+        stdout = ""
+        stderr = ""
+        try:
+            stdout_b, stderr_b = await proc.communicate()
+            stdout = (stdout_b or b"").decode("utf-8", errors="replace")
+            stderr = (stderr_b or b"").decode("utf-8", errors="replace")
+        except Exception:
+            # If communicate fails after kill, return empty outputs
+            pass
+
+        return ExecResult(
+            returncode=proc.returncode if proc.returncode is not None else -1,
+            stdout=stdout,
+            stderr=stderr,
+            timed_out=True,
+        )

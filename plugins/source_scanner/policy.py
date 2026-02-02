@@ -1,36 +1,3 @@
-# -*- coding: utf-8 -*-
-"""Location: ./plugins/source_scanner/policy.py
-Copyright 2025
-SPDX-License-Identifier: Apache-2.0
-
-Policy checker - evaluates findings against thresholds.
-"""
-
-# Future
-from __future__ import annotations
-
-# Standard
-from typing import List, Optional
-
-# Third-Party
-from pydantic import BaseModel
-
-# Local
-from .types import Finding
-
-
-class PolicyDecision(BaseModel):
-    """Policy evaluation decision.
-
-    Attributes:
-        blocked: Whether to block the operation.
-        reason: Explanation if blocked.
-    """
-
-    blocked: bool
-    reason: Optional[str] = None
-
-
 class PolicyChecker:
     """Evaluates findings against policy thresholds."""
 
@@ -43,23 +10,35 @@ class PolicyChecker:
         threshold: str,
         fail_on_critical: bool,
     ) -> PolicyDecision:
-        """Evaluate findings against policy.
+        """Evaluate findings against policy."""
+        # Normalize/validate threshold
+        thr = threshold.upper()
+        if thr not in self._SEVERITY_ORDER:
+            # Default safe behavior: treat unknown threshold as WARNING
+            thr = "WARNING"
 
-        Args:
-            findings: All findings to evaluate.
-            threshold: Minimum severity to consider (ERROR|WARNING|INFO).
-            fail_on_critical: Whether to block on threshold violations.
+        thr_value = self._SEVERITY_ORDER[thr]
 
-        Returns:
-            Policy decision with blocking status and reason.
-        """
-        # TODO: Filter findings where severity >= threshold
-        # TODO: If fail_on_critical=False (audit mode): return PolicyDecision(blocked=False)
-        # TODO: If fail_on_critical=True (enforce mode):
-        #           Count findings by severity
-        #           If any findings >= threshold:
-        #               Generate reason like "Found 3 ERROR, 5 WARNING findings"
-        #               return PolicyDecision(blocked=True, reason=...)
-        #           Else:
-        #               return PolicyDecision(blocked=False)
-        raise NotImplementedError("PolicyChecker.evaluate not implemented")
+        # Findings that meet or exceed threshold
+        violating = [
+            f for f in findings
+            if self._SEVERITY_ORDER.get(f.severity, 0) >= thr_value
+        ]
+
+        # Audit mode: never block, just report
+        if not fail_on_critical:
+            return PolicyDecision(blocked=False)
+
+        # Enforce mode: block if any violations exist
+        if violating:
+            error_count = sum(1 for f in findings if f.severity == "ERROR")
+            warning_count = sum(1 for f in findings if f.severity == "WARNING")
+            info_count = sum(1 for f in findings if f.severity == "INFO")
+
+            reason = (
+                f"Policy threshold {thr} violated: "
+                f"{error_count} ERROR, {warning_count} WARNING, {info_count} INFO findings."
+            )
+            return PolicyDecision(blocked=True, reason=reason)
+
+        return PolicyDecision(blocked=False)

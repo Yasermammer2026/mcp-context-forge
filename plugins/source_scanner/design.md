@@ -1,4 +1,4 @@
-# SourceScannerPlugin_Design_NotionExport.md
+# SourceScannerPlugin_Design.md
 
 ## Flow
 
@@ -78,7 +78,7 @@ Gateway
 
 ## Component Responsibilities
 
-- **SourceScannerPlugin**  
+- **SourceScannerPlugin -- Xinyi**  
   Acts as the orchestrator. It coordinates the scan workflow, reads configuration, and aggregates results.
 
   **Talks to**
@@ -89,35 +89,77 @@ Gateway
   - Calls `PolicyChecker.evaluate(...)`
   - Returns `ScanResult` to Gateway
 
-- **RepoFetcher**  
+---
+
+- **RepoFetcher -- Yasser/#2**  
   Handles Git operations, including repository cloning, reference checkout, and temporary directory management.
 
   - Receives `(repo_url, ref, auth, limits)`
   - Returns `workspace { path, commit_sha }` + `cleanup()`
 
-- **LanguageDetector**  
+---
+
+- **LanguageDetector -- Yasser/#2**  
   Determines the programming language(s) and ecosystem of the repository to guide scanner selection.
 
   - Receives `repo_path`
   - Returns `languages: string[]`
 
-- **ScannerRunners**  
-  Encapsulate the execution logic of individual scanners (e.g. Semgrep, Bandit).
+---
+
+- **ScannerRunners (interface)**  
+  Defines the common contract for all source code scanners.
 
   - Receives `(repo_path, scanner_config, timeout_s)`
   - Returns `findings: Finding[]` (optional `raw_output_ref`)
 
-- **Parser / Normalizer**  
+- **SemgrepRunner -- Ayo / #1**   
+  Runs Semgrep and parses its output (SARIF/JSON) into `Finding[]`.
+
+- **BanditRunner -- Yasser / #2**   
+  Runs Bandit and parses its output (JSON) into `Finding[]`.
+
+---
+
+- **Parser / Normalizer -- Arnav/#3**  
   Parses scanner outputs and converts them into a unified findings schema.
 
   - Receives `findings_by_scanner: Finding[][]`
   - Returns `merged_findings: Finding[]`
 
-- **Policy / Threshold Checker**  
+---
+
+- **Policy / Threshold Checker -- Xinyi**  
   Applies severity thresholds and enforcement rules to decide whether to allow or block registration or deployment.
 
   - Receives `(findings, severity_threshold, fail_on_critical)`
   - Returns `decision { blocked, reason? }`
+
+---
+
+- **Storage / ScanRepository -- Arnav**  
+  Persists scan results and findings, supports deduplication and caching by commit SHA.
+
+  - Receives `ScanResult` / `Finding[]` + metadata
+  - Stores and retrieves scan records (TTL-based cache if enabled)
+
+---
+
+- **Utils / Exec**  
+  Shared subprocess wrapper used by RepoFetcher and ScannerRunners.
+  All CLI invocations (git/semgrep/bandit) should use `utils.exec.run_command(...)`.
+
+  - Runs CLI commands with timeout
+  - Returns stdout/stderr/return code for parsing and error handling
+
+---
+
+- **Tests (Unit + Integration) -- Yasser**  
+  Defines and implements unit/integration tests for the plugin workflow.
+
+  - Unit tests: policy, normalizer, runners, language detection
+  - Integration tests: clone → scan → policy decision on known vulnerable repos
+
 
 ## Data Contracts (Unified Schemas)
 
@@ -143,6 +185,10 @@ for each problem from **Scanners**
 - Bandit: LOW → INFO, MEDIUM → WARNING, HIGH → ERROR
 - Semgrep: map tool-specific severities into ERROR/WARNING/INFO
 
+**Nots:**
+- All scanners must normalize their outputs into this `(Finding schema)`.
+- Deduplication key suggestion: `(scanner, rule_id, file_path, line, message)`
+
 ---
 
 ### ScanResult (Plugin Output Contract)
@@ -162,6 +208,83 @@ whole problem report generate by **Plugin**
 - blocked: boolean               # true if policy blocks the workflow
 - block_reason?: string          # present when blocked=true
 ```
+
+## Configuration Contract
+
+### Scanner Configuration
+
+The plugin supports configuring scanners via the scanners field, matching the issue specification.
+
+**Preferred (recommended) configuration style:**
+
+```
+config:
+  scanners:
+    semgrep:
+      enabled: true
+      rulesets:
+        - p/security-audit
+        - p/owasp-top-ten
+    bandit:
+      enabled: true
+      severity: medium
+      confidence: medium
+```
+
+**Backward-compatible configuration (also supported):**
+
+```
+config:
+  semgrep:
+    enabled: true
+  bandit:
+    enabled: true
+```
+
+**Notes:**
+
+- The `scanners.*` form is preferred and aligns with the project issue and documentation.
+
+- Top-level `semgrep / bandit` configuration is supported for backward compatibility.
+
+- `severity_threshold` defaults to `"WARNING"` if not specified.
+
+
+## Error Handling Contract
+
+**Purpose:** provide consistent error handling across all components.
+
+### Error Types
+
+All components must raise errors from the shared exception hierarchy:
+
+- `RepoFetchError` (clone / checkout / size / timeout)
+
+- `ScannerError` (scanner execution failures)
+
+- `ParseError` (scanner output parsing failures)
+
+- `PolicyError` (policy evaluation failures)
+
+#### Responsibilities
+
+- **Component owners** (RepoFetcher, ScannerRunner, Parser, etc.)
+
+    - Raise the appropriate error type
+
+    - Provide a short, descriptive error message
+
+- **SourceScannerPlugin** (orchestrator)
+
+    - Catches these errors
+
+    - Decides whether to block or allow based on plugin mode and configuration
+
+**Blocking behavior:**
+
+- **Audit mode:** errors are reported but do not block
+
+- **Enforce mode:** blocking is decided by the orchestrator, not by individual components
 
 ## Interface Contracts
 

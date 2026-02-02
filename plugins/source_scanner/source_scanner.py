@@ -17,7 +17,7 @@ import logging
 from typing import Optional
 
 # Third-Party
-from pydantic import BaseModel, Field
+#from pydantic import BaseModel, Field
 
 # First-Party
 from mcpgateway.plugins.framework import (
@@ -82,7 +82,7 @@ class SourceScannerPlugin(Plugin):
         # self._bandit_runner = BanditRunner()
         # self._normalizer = ParserNormalizer()
         self._policy_checker = PolicyChecker()
-        # self._scan_repository = ScanRepository() if self._cfg.cache_by_commit else None
+        # self._scan_repo_store = ScanRepository() if self._cfg.cache_by_commit else None
         
         logger.info(
             "SourceScannerPlugin initialized",
@@ -94,7 +94,7 @@ class SourceScannerPlugin(Plugin):
             },
         )
 
-    async def _scan_repository(
+    async def _scan_workflow(
         self,
         repo_url: str,
         ref: Optional[str] = None,
@@ -117,8 +117,8 @@ class SourceScannerPlugin(Plugin):
         
         try:
             # Step 1: Check cache (if enabled)
-            # TODO: if self._cfg.cache_by_commit and self._scan_repository:
-            #           cached = await self._scan_repository.get_by_commit(repo_url, commit_sha)
+            # TODO: if self._cfg.cache_by_commit and self._scan_repo_store:
+            #           cached = await self._scan_repo_store.get_by_commit(repo_url, commit_sha)
             #           if cached and not expired:
             #               return cached
             
@@ -136,7 +136,7 @@ class SourceScannerPlugin(Plugin):
             languages = []  # placeholder
             
             # Step 4: Run scanners
-            all_findings = []
+            findings_by_scanner: list[list[Finding]] = []
             
             # Run Semgrep (if enabled)
             if self._cfg.semgrep.enabled:
@@ -146,7 +146,7 @@ class SourceScannerPlugin(Plugin):
                 #           config=self._cfg.semgrep,
                 #           timeout_s=self._cfg.scan_timeout_seconds,
                 #       )
-                # TODO: all_findings.append(findings)
+                # TODO: findings_by_scanner.append(findings)
             
             # Run Bandit (if Python detected and enabled)
             if "python" in languages and self._cfg.bandit.enabled:
@@ -156,10 +156,10 @@ class SourceScannerPlugin(Plugin):
                 #           config=self._cfg.bandit,
                 #           timeout_s=self._cfg.scan_timeout_seconds,
                 #       )
-                # TODO: all_findings.append(findings)
+                # TODO: findings_by_scanner.append(findings)
             
             # Step 5: Merge & Deduplicate
-            # TODO: merged_findings = self._normalizer.merge_dedup(all_findings)
+            # TODO: merged_findings = self._normalizer.merge_dedup(findings_by_scanner)
             merged_findings = []  # placeholder
             
             # Step 6: Calculate summary
@@ -198,8 +198,8 @@ class SourceScannerPlugin(Plugin):
             )
             
             # Step 9: Store results (if cache enabled)
-            # TODO: if self._cfg.cache_by_commit and self._scan_repository:
-            #           await self._scan_repository.save(result)
+            # TODO: if self._cfg.cache_by_commit and self._scan_repo_store:
+            #           await self._scan_repo_store.save(result)
             
             logger.info(
                 "Scan complete",
@@ -258,7 +258,7 @@ class SourceScannerPlugin(Plugin):
             #           logger.warning("No repo_url in payload, allowing registration")
             #           return ServerPreRegisterResult(continue_processing=True)
             
-            # TODO: result = await self._scan_repository(repo_url, ref)
+            # TODO: result = await self._scan_workflow(repo_url, ref)
             
             # TODO: if result.blocked:
             #           return ServerPreRegisterResult(
@@ -277,11 +277,15 @@ class SourceScannerPlugin(Plugin):
             
             # Placeholder: allow all registrations until implemented
             logger.warning("server_pre_register not fully implemented, allowing")
+            # NOTE: Current implementation is fail-open.    
+            # Enforce-mode scan failure behavior will be configurable.
             return ServerPreRegisterResult(continue_processing=True)
             
         except Exception as e:
             logger.error(f"server_pre_register failed: {e}", exc_info=True)
             # Fail open: allow registration but log error
+            # NOTE: Current implementation is fail-open.
+            # Enforce-mode scan failure behavior will be configurable.
             return ServerPreRegisterResult(continue_processing=True)
 
     async def catalog_pre_deploy(
@@ -316,7 +320,7 @@ class SourceScannerPlugin(Plugin):
             #           logger.warning("No repo_url in payload, allowing deployment")
             #           return CatalogPreDeployResult(continue_processing=True)
             
-            # TODO: result = await self._scan_repository(repo_url, ref)
+            # TODO: result = await self._scan_workflow(repo_url, ref)
             
             # TODO: if result.blocked:
             #           return CatalogPreDeployResult(
