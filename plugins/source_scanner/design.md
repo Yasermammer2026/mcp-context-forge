@@ -365,6 +365,14 @@ All components must raise errors from the shared exception hierarchy:
 - **Suggested rule (MVP)**
   - If `fail_on_critical=true` and any finding severity ≥ threshold → blocked=true
 
+## Hook Trigger Points (Gateway Integration)  
+
+- Gateway currently documents server_pre_register and catalog_pre_deploy but does not invoke them in code.
+- To enable SourceScannerPlugin, we need to add hook trigger points in:  
+  - `mcpgateway/services/server_service.py::register_server` → invoke `"server_pre_register"`
+  - `mcpgateway/services/catalog_service.py::deploy_catalog` → invoke `"catalog_pre_deploy"`
+- Current behavior is fail-open until enforce-mode scan-failure policy is finalized.
+
 ## Directory Structure
 
 ```bash
