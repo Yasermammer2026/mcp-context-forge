@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from plugins.source_scanner.types import Finding
 from plugins.source_scanner.storage.models import ScanRecord, FindingRecord
-
+#
 
 class ScanRepository:
     """Repository for accessing and storing scan records."""

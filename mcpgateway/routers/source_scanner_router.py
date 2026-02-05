@@ -6,9 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 FastAPI Router for Source Scanner Results API.
 """
+from __future__ import annotations
 
-import logging
-from typing import Any, Dict, List, Optional
+#import logging
+from typing import Any, Dict, List, Optional, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -18,13 +19,16 @@ from mcpgateway.auth import get_current_user
 from mcpgateway.db import get_db
 from mcpgateway.services.logging_service import LoggingService
 
+from plugins.source_scanner.storage.repository import ScanRepository
+REPOSITORY_AVAILABLE = True
 
-try:
-    from plugins.source_scanner.storage.repository import ScanRepository
-    REPOSITORY_AVAILABLE = True
-except ImportError:
-    REPOSITORY_AVAILABLE = False
-    logging.getLogger(__name__).warning("ScanRepository not available")
+
+# try:
+#     from plugins.source_scanner.storage.repository import ScanRepository
+#     REPOSITORY_AVAILABLE = True
+# except ImportError:
+#     REPOSITORY_AVAILABLE = False
+#     logging.getLogger(__name__).warning("ScanRepository not available")
 
 logger = LoggingService().get_logger(__name__)
 
@@ -34,6 +38,8 @@ source_scanner_router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
+
+#from __future__ import annotations  # <-- postpones evaluation of annotations
 
 class FindingResponse(BaseModel):
     """Single finding response."""
@@ -50,6 +56,7 @@ class FindingResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 
 class ScanSummaryResponse(BaseModel):
@@ -75,9 +82,13 @@ class ScanResponse(BaseModel):
         from_attributes = True
 
 
+
 class ScanWithFindingsResponse(ScanResponse):
     """Scan response with findings."""
-    findings: List[FindingResponse] = Field(default_factory=list)
+
+    findings: Annotated[list[FindingResponse], Field(default_factory=list)]
+
+
 
 
 @source_scanner_router.get("/scans/{scan_id}", response_model=ScanWithFindingsResponse)

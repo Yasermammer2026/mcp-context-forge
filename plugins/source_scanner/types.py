@@ -10,8 +10,7 @@ Data schemas for findings and scan results.
 from __future__ import annotations
 
 # Standard
-#from typing import Tuple, List, Optional, Literal
-from typing import Tuple, Optional, Literal
+from typing import Tuple, List, Optional, Literal, Annotated
 
 
 
@@ -43,8 +42,6 @@ class Finding(BaseModel):
     column: Optional[int] = None
     code_snippet: Optional[str] = None
     help_url: Optional[str] = None
-
-    #def dedup_key(self) -> tuple:
 
     def dedup_key(self) -> Tuple[str, str, Optional[str], Optional[int], str]:
         """Generate deduplication key.
@@ -91,8 +88,8 @@ class ScanResult(BaseModel):
     repo_url: str
     ref: Optional[str] = None
     commit_sha: Optional[str] = None
-    languages: list[str] = Field(default_factory=list)
-    findings: list[Finding] = Field(default_factory=list)
+    languages: List[str] = Field(default_factory=list)
+    findings: Annotated[list[Finding], Field(default_factory=list)]
     summary: ScanSummary = Field(default_factory=ScanSummary)
     blocked: bool = False
     block_reason: Optional[str] = None
