@@ -41,6 +41,11 @@ class Finding(BaseModel):
     code_snippet: Optional[str] = None
     help_url: Optional[str] = None
 
+    # optional metadata
+    cwe: List[str] = Field(default_factory=list)
+    confidence: Optional[Literal["HIGH","MEDIUM","LOW"]] = None
+    impact: Optional[Literal["HIGH","MEDIUM","LOW"]] = None
+
     def dedup_key(self) -> tuple:
         """Generate deduplication key.
 
@@ -62,6 +67,11 @@ class ScanSummary(BaseModel):
     error_count: int = 0
     warning_count: int = 0
     info_count: int = 0
+
+    @property
+    def total_findings(self) -> int:
+        """Calculate total findings count."""
+        return self.error_count + self.warning_count + self.info_count
 
 
 class ScanResult(BaseModel):
@@ -86,3 +96,22 @@ class ScanResult(BaseModel):
     summary: ScanSummary = Field(default_factory=ScanSummary)
     blocked: bool = False
     block_reason: Optional[str] = None
+    scan_duration_seconds: Optional[float] = None
+
+
+class policy_violation(BaseModel):
+    """Policy violation details for blocked workflows.
+
+    Attributes:
+        blocked: Whether to block deployment.
+        reason: Human-readable explanation.
+        blocking_findings: Findings that caused the block.
+        error_count: Number of ERROR findings.
+        warning_count: Number of WARNING findings.
+    """
+
+    blocked: bool
+    reason: Optional[str] = None
+    blocking_findings: List[Finding] = Field(default_factory=list)
+    error_count: int = 0
+    warning_count: int = 0
