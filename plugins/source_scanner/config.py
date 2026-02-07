@@ -35,6 +35,7 @@ class SemgrepConfig(BaseModel):
         ]
     )
     extra_args: List[str] = Field(default_factory=list)
+    timeout_seconds: int = 600  # Default scan timeout of 10 minutes
 
 
 class BanditConfig(BaseModel):

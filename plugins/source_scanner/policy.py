@@ -1,3 +1,14 @@
+# -*- coding: utf-8 -*-
+"""Location: ./plugins/source_scanner/policy.py
+Copyright 2025
+SPDX-License-Identifier: Apache-2.0
+
+Policy evaluation for scan findings.
+"""
+
+from typing import List
+from .types import Finding, PolicyDecision
+
 class PolicyChecker:
     """Evaluates findings against policy thresholds."""
 
@@ -11,6 +22,7 @@ class PolicyChecker:
         fail_on_critical: bool,
     ) -> PolicyDecision:
         """Evaluate findings against policy."""
+
         # Normalize/validate threshold
         thr = threshold.upper()
         if thr not in self._SEVERITY_ORDER:
