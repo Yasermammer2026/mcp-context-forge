@@ -3,6 +3,7 @@
 import pytest
 from pathlib import Path
 from typing import Any, Dict
+from pytest import TestReport
 
 def pytest_configure(config: pytest.Config) -> None:
     """Register custom pytest markers."""
@@ -516,3 +517,30 @@ def mock_server_request_with_commit() -> Dict[str, Any]:
         },
         "enabled": True
     }
+
+
+# Dictionary to store test results
+test_results: Dict[str, list[tuple[str, str]]] = {}
+
+def pytest_runtest_logreport(report: TestReport) -> None:
+    """Hook to capture test results."""
+    if report.when == "call":
+        test_class = report.nodeid.split("::")[0].split("/")[-1]
+        test_name = report.nodeid.split("::")[-1]
+        if test_class not in test_results:
+            test_results[test_class] = []
+        test_results[test_class].append((test_name, report.outcome))
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Hook to print custom summary at the end of the test session."""
+    print("\n\nCustom Test Summary:")
+    for test_class, results in test_results.items():
+        passed_tests = [test for test, outcome in results if outcome == "passed"]
+        failed_tests = [test for test, outcome in results if outcome == "failed"]
+        print(f"\n{test_class} - {len(passed_tests)} tests PASSED")
+        for test in passed_tests:
+            print(f"✅ {test}")
+        if failed_tests:
+            print(f"\n❌ FAILED: {len(failed_tests)} tests")
+            for test in failed_tests:
+                print(f"❌ {test}")

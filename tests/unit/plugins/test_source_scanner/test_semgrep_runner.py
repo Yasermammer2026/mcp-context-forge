@@ -1,425 +1,499 @@
-"""Unit tests for Semgrep runner integration."""
+# -*- coding: utf-8 -*-
+"""Unit tests for Semgrep runner integration.
 
-from pathlib import Path
-from typing import Any, Dict
-from unittest.mock import MagicMock, patch
+Test coverage includes:
+- Initialization with various configurations
+- Command building with different rulesets and arguments
+- SARIF output parsing (empty, single, multiple findings)
+- Severity mapping (all severity levels)
+- Finding object validation
+- Error handling
+"""
 
 import pytest
+from tempfile import mkdtemp
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+from plugins.source_scanner.scanners.semgrep_runner import SemgrepRunner
+from plugins.source_scanner.types import Finding
 
 
-class TestSemgrepRunner:
-    """Test suite for Semgrep runner integration and SARIF parsing."""
+class TestSemgrepRunnerInitialization:
 
-    # ===== Scanner Initialization Tests =====
+    def test_init_with_default_config(self) -> None:
+        """Test initialization uses defaults when config is minimal."""
+        config = {"enabled": True}
+        runner = SemgrepRunner(config)
+        
+        assert runner.enabled is True, "enabled should be True from config"
+        assert runner.rulesets == ["p/security-audit"], f"Expected default ruleset ['p/security-audit'], got {runner.rulesets}"
+        assert runner.extra_args == [], f"Expected empty extra_args, got {runner.extra_args}"
+        assert runner.timeout == 300, f"Expected default timeout 300, got {runner.timeout}"
 
-    def test_init_with_default_config(self, semgrep_scanner_config: Dict[str, Any]) -> None:
-        """Initialize Semgrep with default configuration."""
-        # Arrange
-        config = semgrep_scanner_config
-
-        # Act & Assert
-        assert config["enabled"] is True
-        assert len(config["rulesets"]) > 0
-
-    def test_init_with_custom_rulesets(self, semgrep_scanner_config: Dict[str, Any]) -> None:
-        """Initialize Semgrep with custom rulesets."""
-        # Arrange
-        config = semgrep_scanner_config.copy()
-        config["rulesets"] = ["p/python", "p/javascript", "p/security-audit"]
-
-        # Act & Assert
-        assert len(config["rulesets"]) == 3
-        assert all(isinstance(r, str) for r in config["rulesets"])
-
-    def test_init_with_extra_args(self, semgrep_scanner_config: Dict[str, Any]) -> None:
-        """Initialize Semgrep with extra CLI arguments."""
-        # Arrange
-        config = semgrep_scanner_config.copy()
-        config["extra_args"] = ["--verbose", "--timeout=30"]
-
-        # Act & Assert
-        assert config["extra_args"] == ["--verbose", "--timeout=30"]
-
-    def test_init_validates_rulesets_not_empty(self) -> None:
-        """Initialize validates that rulesets list is not empty."""
-        # Arrange
-        config: Dict[str, Any] = {
+    def test_init_with_custom_config(self) -> None:
+        """Test initialization with all custom configuration values."""
+        config = {
             "enabled": True,
-            "rulesets": [],  # Empty rulesets
-            "extra_args": []
+            "rulesets": ["p/security-audit", "p/python", "p/javascript"],
+            "extra_args": ["--verbose", "--timeout=60"],
+            "timeout": 600,
         }
+        runner = SemgrepRunner(config)
+        
+        assert runner.enabled is True, "enabled should match config"
+        assert len(runner.rulesets) == 3, f"Expected 3 rulesets, got {len(runner.rulesets)}"
+        assert "p/python" in runner.rulesets, "p/python should be in rulesets"
+        assert runner.extra_args == ["--verbose", "--timeout=60"], f"extra_args mismatch: {runner.extra_args}"
+        assert runner.timeout == 600, f"Expected timeout 600, got {runner.timeout}"
 
-        # Act & Assert
-        assert isinstance(config["rulesets"], list)
+    def test_init_disabled_scanner(self) -> None:
+        """Test initialization when scanner is disabled."""
+        config = {"enabled": False}
+        runner = SemgrepRunner(config)
+        
+        assert runner.enabled is False, "enabled should be False"
 
-    @pytest.mark.requires_semgrep
-    def test_semgrep_not_installed(self, semgrep_scanner_config: Dict[str, Any]) -> None:
-        """Handle when semgrep not installed."""
-        # Arrange
-        config = semgrep_scanner_config
 
-        # Act & Assert
-        assert config["enabled"] is True
+class TestCommandBuilding:
+    """Test suite for Semgrep command construction."""
 
-    # ===== Semgrep Execution Tests =====
+    def test_build_command_basic_structure(self) -> None:
+        """Test basic command includes all required parts."""
+        config = {"rulesets": ["p/security-audit"]}
+        runner = SemgrepRunner(config)
+        
+        command = runner.build_command("/tmp/repo")
+        
+        assert "semgrep" in command, f"Command should start with 'semgrep': {command}"
+        assert "scan" in command, f"Command should include 'scan': {command}"
+        assert "--config" in command, f"Command should include '--config' flag: {command}"
+        assert "p/security-audit" in command, f"Command should include ruleset: {command}"
+        assert "--json" in command, f"Command should include '--json' output format: {command}"
+        assert "/tmp/repo" in command, f"Command should include repo path: {command}"
 
-    @pytest.mark.requires_semgrep
-    def test_scan_python_project(self, vulnerable_python_code: Path) -> None:
-        """Scan Python project with Semgrep and return findings."""
-        # Arrange
-        project_dir = vulnerable_python_code
-        assert (project_dir / "app.py").exists()
+    def test_build_command_multiple_rulesets(self) -> None:
+        """Test command building with multiple rulesets."""
+        config = {"rulesets": ["p/security-audit", "p/python", "p/owasp-top-ten"]}
+        runner = SemgrepRunner(config)
+        
+        command = runner.build_command("/tmp/repo")
+        
+        config_count = command.count("--config")
+        assert config_count == 3, f"Expected 3 '--config' flags, got {config_count}"
+        assert "p/security-audit" in command, "p/security-audit not in command"
+        assert "p/python" in command, "p/python not in command"
+        assert "p/owasp-top-ten" in command, "p/owasp-top-ten not in command"
 
-        pass 
+    def test_build_command_with_extra_arguments(self) -> None:
+        """Test command building includes extra arguments."""
+        config = {"extra_args": ["--verbose", "--timeout=30", "--strict"]}
+        runner = SemgrepRunner(config)
+        
+        command = runner.build_command("/tmp/repo")
+        
+        assert "--verbose" in command, f"--verbose not in command: {command}"
+        assert "--timeout=30" in command, f"--timeout=30 not in command: {command}"
+        assert "--strict" in command, f"--strict not in command: {command}"
 
-    @pytest.mark.requires_semgrep
-    def test_scan_javascript_project(self, vulnerable_javascript_code: Path) -> None:
-        """Scan JavaScript project with Semgrep and return findings."""
-        # Arrange
-        project_dir = vulnerable_javascript_code
-        assert (project_dir / "app.js").exists()
+    def test_build_command_empty_rulesets(self) -> None:
+        """Test command building with empty rulesets list."""
+        config: dict[str, Any] = {"rulesets": []}
+        runner = SemgrepRunner(config)
+        
+        command = runner.build_command("/tmp/repo")
+        
+        assert "semgrep" in command, "Command should still be valid"
+        assert "--json" in command, "JSON output should still be included"
 
-        pass
 
-    @pytest.mark.requires_semgrep
-    def test_scan_with_specific_rulesets(self, vulnerable_python_code: Path) -> None:
-        """Scan with specific rulesets."""
-        # Arrange
-        project_dir = vulnerable_python_code
-        assert project_dir.exists()
-        config: Dict[str, Any] = {
-            "enabled": True,
-            "rulesets": ["p/python"],
-            "extra_args": []
-        }
+class TestSARIFParsing:
+    """Test suite for Semgrep SARIF output parsing."""
 
-        # Act & Assert
-        assert config["rulesets"] == ["p/python"]
+    def test_parse_empty_results(self) -> None:
+        """Test parsing empty results returns empty list."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {"results": []}
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert isinstance(findings, list), f"Expected list, got {type(findings)}"
+        assert len(findings) == 0, f"Expected empty list, got {len(findings)} findings"
 
-    @pytest.mark.requires_semgrep
-    @pytest.mark.slow
-    def test_scan_timeout_exceeded(self, vulnerable_python_code: Path) -> None:
-        """Timeout if scan takes too long."""
-        # Arrange
-        project_dir = vulnerable_python_code
-        assert project_dir.exists()
-        config: Dict[str, Any] = {
-            "enabled": True,
-            "rulesets": ["p/security-audit"],
-            "extra_args": [],
-            "timeout": 1  # 1 second (too short)
-        }
-
-        # Act & Assert
-        assert isinstance(config["timeout"], int) and config["timeout"] > 0
-
-    def test_scan_no_findings(self, empty_directory: Path) -> None:
-        """Scan clean code returns empty findings."""
-        # Arrange
-        project_dir = empty_directory
-        assert project_dir.exists()
-        clean_code = project_dir / "clean_app.py"
-        clean_code.write_text("def hello():\n    return 'Hello, World!'\n")
-
-        # Act & Assert
-        assert clean_code.exists()
-
-    # ===== SARIF Output Parsing Tests =====
-
-    def test_parse_sarif_basic(self, mock_semgrep_sarif_output: Dict[str, Any]) -> None:
-        """Parse basic SARIF output into Finding objects."""
-        # Arrange
-        sarif_output: Dict[str, Any] = mock_semgrep_sarif_output
-
-        # Act & Assert
-        assert sarif_output["version"] == "2.1.0"
-        runs: list[Any] = sarif_output["runs"]  # type: ignore
-        assert len(runs) > 0
-        first_run: Dict[str, Any] = runs[0]  # type: ignore
-        results: list[Any] = first_run["results"]  # type: ignore
-        assert len(results) > 0
-
-    def test_parse_sarif_extract_rule_id(self, sample_sarif_result: Dict[str, Any]) -> None:
-        """Extract rule ID from SARIF result."""
-        # Arrange
-        result = sample_sarif_result
-
-        # Act
-        rule_id = result["ruleId"]
-
-        # Assert
-        assert rule_id == "python.django.security.sql-injection"
-        assert rule_id is not None
-        assert isinstance(rule_id, str)
-
-    def test_parse_sarif_extract_severity_level(self, sample_sarif_result: Dict[str, Any]) -> None:
-        """Map SARIF level to severity."""
-        # Arrange
-        result = sample_sarif_result
-
-        # Act
-        level = result["level"]
-
-        # Assert
-        assert level == "error"
-        assert level in ["error", "warning", "note", "none"]
-
-    def test_parse_sarif_extract_message(self, sample_sarif_result: Dict[str, Any]) -> None:
-        """Extract message from SARIF result."""
-        # Arrange
-        result = sample_sarif_result
-
-        # Act
-        message = result["message"]["text"]
-
-        # Assert
-        assert message is not None
-        assert len(message) > 0
-        assert "SQL injection" in message or "injection" in message.lower()
-
-    def test_parse_sarif_extract_file_location(self, sample_sarif_result: Dict[str, Any]) -> None:
-        """Extract file path from SARIF result."""
-        # Arrange
-        result = sample_sarif_result
-
-        # Act
-        location = result["locations"][0]
-        file_uri = location["physicalLocation"]["artifactLocation"]["uri"]
-        line_number = location["physicalLocation"]["region"]["startLine"]
-
-        # Assert
-        assert file_uri == "handlers.py"
-        assert line_number == 45
-        assert isinstance(line_number, int) and line_number > 0
-
-    def test_parse_sarif_extract_code_snippet(self, sample_sarif_result: Dict[str, Any]) -> None:
-        """Extract code snippet from SARIF result."""
-        # Arrange
-        result = sample_sarif_result
-
-        # Act
-        snippet = result["locations"][0]["physicalLocation"]["region"]["snippet"]["text"]
-
-        # Assert
-        assert snippet is not None
-        assert len(snippet) > 0
-        assert "SELECT" in snippet or "query" in snippet.lower()
-
-    def test_parse_sarif_empty_findings(self, mock_semgrep_sarif_empty: Dict[str, Any]) -> None:
-        """Parse SARIF with no findings (empty results)."""
-        # Arrange
-        sarif_output: Dict[str, Any] = mock_semgrep_sarif_empty
-
-        # Act & Assert
-        runs: list[Any] = sarif_output["runs"]  # type: ignore
-        assert len(runs) > 0
-        first_run: Dict[str, Any] = runs[0]  # type: ignore
-        results: list[Any] = first_run["results"]  # type: ignore
-        assert len(results) == 0
-
-    def test_parse_sarif_multiple_runs(self) -> None:
-        """Parse SARIF with multiple tool runs."""
-        # Arrange
-        sarif_multi_run: Dict[str, Any] = {
-            "version": "2.1.0",
-            "runs": [
+    def test_parse_single_finding(self) -> None:
+        """Test parsing single finding from output."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif = {
+            "results": [
                 {
-                    "tool": {"driver": {"name": "Tool1", "version": "1.0"}},
-                    "results": [
-                        {
-                            "ruleId": "rule1",
-                            "level": "error",
-                            "message": {"text": "Finding 1"},
-                            "locations": [{
-                                "physicalLocation": {
-                                    "artifactLocation": {"uri": "file1.py"},
-                                    "region": {"startLine": 10}
-                                }
-                            }]
-                        }
-                    ]
-                },
-                {
-                    "tool": {"driver": {"name": "Tool2", "version": "1.0"}},
-                    "results": [
-                        {
-                            "ruleId": "rule2",
-                            "level": "warning",
-                            "message": {"text": "Finding 2"},
-                            "locations": [{
-                                "physicalLocation": {
-                                    "artifactLocation": {"uri": "file2.py"},
-                                    "region": {"startLine": 20}
-                                }
-                            }]
-                        }
-                    ]
+                    "check_id": "python.django.sql-injection",
+                    "severity": "ERROR",
+                    "message": "SQL injection",
+                    "path": "app.py",
+                    "start": {"line": 42, "col": 10},
+                    "extra": {
+                        "message": "Parameterized query needed",
+                        "lines": "query = f'SELECT * FROM users WHERE id={uid}'",
+                        "doc_url": "https://semgrep.dev/r/sql-injection"
+                    }
                 }
             ]
         }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert len(findings) == 1, f"Expected 1 finding, got {len(findings)}"
+        finding = findings[0]
+        assert finding.scanner == "semgrep", f"scanner should be 'semgrep', got {finding.scanner}"
+        assert finding.rule_id == "python.django.sql-injection", f"rule_id mismatch: {finding.rule_id}"
+        assert finding.severity == "ERROR", f"severity should be ERROR, got {finding.severity}"
+        assert finding.file_path == "app.py", f"file_path mismatch: {finding.file_path}"
+        assert finding.line == 42, f"line should be 42, got {finding.line}"
+        assert finding.column == 10, f"column should be 10, got {finding.column}"
 
-        # Act & Assert
-        runs: list[Any] = sarif_multi_run["runs"]  # type: ignore
-        assert len(runs) == 2
-        run0: Dict[str, Any] = runs[0]  # type: ignore
-        run1: Dict[str, Any] = runs[1]  # type: ignore
-        assert len(run0["results"]) == 1  # type: ignore
-        assert len(run1["results"]) == 1  # type: ignore
+    def test_parse_multiple_findings(self) -> None:
+        """Test parsing multiple findings."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif = {
+            "results": [
+                {
+                    "check_id": "rule.one",
+                    "severity": "ERROR",
+                    "message": "Issue 1",
+                    "path": "file1.py",
+                    "start": {"line": 10},
+                },
+                {
+                    "check_id": "rule.two",
+                    "severity": "WARNING",
+                    "message": "Issue 2",
+                    "path": "file2.py",
+                    "start": {"line": 20},
+                },
+                {
+                    "check_id": "rule.three",
+                    "severity": "INFO",
+                    "message": "Issue 3",
+                    "path": "file3.py",
+                    "start": {"line": 30},
+                },
+            ]
+        }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert len(findings) == 3, f"Expected 3 findings, got {len(findings)}"
+        assert findings[0].rule_id == "rule.one", f"First finding rule_id mismatch"
+        assert findings[1].rule_id == "rule.two", f"Second finding rule_id mismatch"
+        assert findings[2].rule_id == "rule.three", f"Third finding rule_id mismatch"
 
-    def test_parse_sarif_missing_optional_fields(self, sample_sarif_result: Dict[str, Any]) -> None:
-        """Handle SARIF with missing optional fields gracefully."""
-        # Arrange
-        minimal_result: Dict[str, Any] = {
-            "ruleId": "python.security.injection",
-            "level": "error",
-            "message": {"text": "Security issue"},
-            "locations": [{
-                "physicalLocation": {
-                    "artifactLocation": {"uri": "app.py"},
-                    "region": {"startLine": 42}
+    def test_parse_error_in_sarif(self) -> None:
+        """Test handling error field in output."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif = {"error": "Semgrep execution failed"}
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert len(findings) == 0, f"Expected empty list on error, got {len(findings)}"
+
+    def test_parse_missing_optional_fields(self) -> None:
+        """Test handling missing optional fields gracefully."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif = {
+            "results": [
+                {
+                    "check_id": "rule.minimal",
+                    "severity": "INFO",
+                    "message": "Minimal finding",
+                    "path": "file.py",
+                    "start": {"line": 5},
                 }
-            }]
+            ]
         }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert len(findings) == 1, "Should parse minimal finding"
+        finding = findings[0]
+        assert finding.column is None, f"column should be None, got {finding.column}"
+        assert finding.code_snippet is None, f"code_snippet should be None, got {finding.code_snippet}"
+        assert finding.help_url is None, f"help_url should be None, got {finding.help_url}"
 
-        # Act & Assert
-        assert minimal_result["ruleId"] is not None
-        assert minimal_result["level"] in ["error", "warning", "note", "none"]
-        assert minimal_result["message"]["text"] is not None
-        assert minimal_result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] is not None
-
-    # ===== Command Building Tests =====
-
-    def test_build_semgrep_command_basic(self, semgrep_scanner_config: Dict[str, Any]) -> None:
-        """Build basic Semgrep command."""
-        # Arrange
-        project_path = "/path/to/project"
-        config = semgrep_scanner_config
-
-        # Act & Assert
-        assert config["enabled"] is True
-        assert project_path is not None
-
-    def test_build_semgrep_command_json_output(self, semgrep_scanner_config: Dict[str, Any]) -> None:
-        """Command outputs JSON format."""
-        # Arrange
-        config = semgrep_scanner_config
-        expected_format = "json"
-
-        # Act & Assert
-        assert config["enabled"] is True
-        assert expected_format == "json"
-
-    def test_build_semgrep_command_with_rulesets(self) -> None:
-        """Include rulesets in command."""
-        # Arrange
-        config: Dict[str, Any] = {
-            "enabled": True,
-            "rulesets": ["p/security-audit", "p/python", "p/javascript"],
-            "extra_args": []
+    def test_parse_missing_start_line_defaults_to_none(self) -> None:
+        """Test missing start.line field defaults to None."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "rule",
+                    "severity": "INFO",
+                    "message": "Issue",
+                    "path": "file.py",
+                    "start": {},
+                }
+            ]
         }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert findings[0].line is None, f"line should be None when missing, got {findings[0].line}"
 
-        # Act & Assert
-        assert len(config["rulesets"]) == 3
-        assert all(isinstance(r, str) for r in config["rulesets"])
 
-    def test_build_semgrep_command_with_extra_args(self, semgrep_scanner_config: Dict[str, Any]) -> None:
-        """Include extra arguments in command."""
-        # Arrange
-        config = semgrep_scanner_config.copy()
-        config["extra_args"] = ["--verbose", "--timeout=60"]
+class TestSeverityMapping:
+    """Test suite for severity level mapping."""
 
-        # Act & Assert
-        assert config["extra_args"] == ["--verbose", "--timeout=60"]
-
-    def test_build_semgrep_command_single_ruleset(self) -> None:
-        """Build command with single ruleset."""
-        # Arrange
-        config: Dict[str, Any] = {
-            "enabled": True,
-            "rulesets": ["p/security-audit"],
-            "extra_args": []
+    def test_severity_error_stays_error(self) -> None:
+        """Test ERROR severity maps to ERROR."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "rule",
+                    "severity": "ERROR",
+                    "message": "Error msg",
+                    "path": "file.py",
+                    "start": {"line": 1},
+                }
+            ]
         }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert findings[0].severity == "ERROR", f"ERROR should map to ERROR, got {findings[0].severity}"
 
-        # Act & Assert
-        assert len(config["rulesets"]) == 1
-        assert config["rulesets"][0] == "p/security-audit"
-
-    # ===== Integration Tests =====
-
-    @pytest.mark.requires_semgrep
-    @pytest.mark.integration
-    def test_scan_and_parse_integration(self, vulnerable_python_code: Path) -> None:
-        """Full scan and parse workflow end-to-end."""
-        # Arrange
-        project_dir = vulnerable_python_code
-        assert project_dir.exists()
-        config: Dict[str, Any] = {
-            "enabled": True,
-            "rulesets": ["p/security-audit"],
-            "extra_args": []
+    def test_severity_warning_stays_warning(self) -> None:
+        """Test WARNING severity maps to WARNING."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "rule",
+                    "severity": "WARNING",
+                    "message": "Warn msg",
+                    "path": "file.py",
+                    "start": {"line": 1},
+                }
+            ]
         }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert findings[0].severity == "WARNING", f"WARNING should map to WARNING, got {findings[0].severity}"
 
-        # Act & Assert
-        assert config["enabled"] is True
+    def test_severity_info_stays_info(self) -> None:
+        """Test INFO severity maps to INFO."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "rule",
+                    "severity": "INFO",
+                    "message": "Info msg",
+                    "path": "file.py",
+                    "start": {"line": 1},
+                }
+            ]
+        }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert findings[0].severity == "INFO", f"INFO should map to INFO, got {findings[0].severity}"
 
-    def test_scan_with_mock_subprocess(self, vulnerable_python_code: Path) -> None:
-        """Scan using mocked subprocess (no real semgrep execution)."""
-        # Arrange
-        project_dir = vulnerable_python_code
-        assert project_dir.exists()
-        mock_json_response = b'{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep"}},"results":[{"ruleId":"python.security","level":"error"}]}]}'
+    def test_severity_high_maps_to_error(self) -> None:
+        """Test HIGH severity maps to ERROR."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "rule",
+                    "severity": "HIGH",
+                    "message": "High severity",
+                    "path": "file.py",
+                    "start": {"line": 1},
+                }
+            ]
+        }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert findings[0].severity == "ERROR", f"HIGH should map to ERROR, got {findings[0].severity}"
 
-        # Act
+    def test_severity_medium_maps_to_warning(self) -> None:
+        """Test MEDIUM severity maps to WARNING."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "rule",
+                    "severity": "MEDIUM",
+                    "message": "Medium severity",
+                    "path": "file.py",
+                    "start": {"line": 1},
+                }
+            ]
+        }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert findings[0].severity == "WARNING", f"MEDIUM should map to WARNING, got {findings[0].severity}"
+
+    def test_severity_low_maps_to_info(self) -> None:
+        """Test LOW severity maps to INFO."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "rule",
+                    "severity": "LOW",
+                    "message": "Low severity",
+                    "path": "file.py",
+                    "start": {"line": 1},
+                }
+            ]
+        }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert findings[0].severity == "INFO", f"LOW should map to INFO, got {findings[0].severity}"
+
+    def test_severity_unknown_defaults_to_info(self) -> None:
+        """Test unknown severity defaults to INFO."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "rule",
+                    "severity": "CRITICAL",  # not in mapping
+                    "message": "Unknown severity",
+                    "path": "file.py",
+                    "start": {"line": 1},
+                }
+            ]
+        }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert findings[0].severity == "INFO", f"Unknown severity should default to INFO, got {findings[0].severity}"
+
+    def test_severity_case_insensitive(self) -> None:
+        """Test severity mapping is case-insensitive."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "rule",
+                    "severity": "error",  # lowercase
+                    "message": "Lowercase error",
+                    "path": "file.py",
+                    "start": {"line": 1},
+                }
+            ]
+        }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert findings[0].severity == "ERROR", f"Lowercase 'error' should map to ERROR, got {findings[0].severity}"
+
+
+class TestFindingObject:
+    """Test suite for Finding object validation."""
+
+    def test_finding_object_scanner_field(self) -> None:
+        """Test Finding object has correct scanner field."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "rule",
+                    "severity": "INFO",
+                    "message": "Test",
+                    "path": "file.py",
+                    "start": {"line": 1},
+                }
+            ]
+        }
+        findings = runner.parse_sarif_output(sarif)
+        
+        assert findings[0].scanner == "semgrep", f"scanner should be 'semgrep', got {findings[0].scanner}"
+
+    def test_finding_object_all_attributes(self) -> None:
+        """Test Finding object has all required attributes."""
+        config: dict[str, Any] = {}
+        runner = SemgrepRunner(config)
+        
+        sarif: dict[str, Any] = {
+            "results": [
+                {
+                    "check_id": "test.rule.id",
+                    "severity": "ERROR",
+                    "message": "Test message",
+                    "path": "test/file.py",
+                    "start": {"line": 99, "col": 42},
+                    "extra": {
+                        "message": "Detailed message",
+                        "lines": "code = vulnerable()",
+                        "doc_url": "https://docs.example.com/rule"
+                    }
+                }
+            ]
+        }
+        findings = runner.parse_sarif_output(sarif)
+        finding = findings[0]
+        
+        assert hasattr(finding, "scanner"), "Finding should have 'scanner' attribute"
+        assert hasattr(finding, "rule_id"), "Finding should have 'rule_id' attribute"
+        assert hasattr(finding, "severity"), "Finding should have 'severity' attribute"
+        assert hasattr(finding, "message"), "Finding should have 'message' attribute"
+        assert hasattr(finding, "file_path"), "Finding should have 'file_path' attribute"
+        assert hasattr(finding, "line"), "Finding should have 'line' attribute"
+        assert hasattr(finding, "column"), "Finding should have 'column' attribute"
+        assert hasattr(finding, "code_snippet"), "Finding should have 'code_snippet' attribute"
+        assert hasattr(finding, "help_url"), "Finding should have 'help_url' attribute"
+
+
+@pytest.mark.requires_semgrep
+class TestIntegration:
+    """Integration tests requiring actual semgrep installation."""
+
+    def test_run_returns_list(self) -> None:
+        """Test run method returns a list."""
+        config: dict[str, Any] = {"rulesets": ["p/security-audit"]}
+        runner = SemgrepRunner(config)
+        
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=0,
-                stdout=mock_json_response
+                stdout='{"results": []}'
             )
+            findings = runner.run("https://github.com/test/repo.git", mkdtemp())
+            
+            assert isinstance(findings, list), f"run() should return list, got {type(findings)}"
 
-
-        # Assert
-        assert mock_run.called is False or mock_run.called is True
-
-    def test_scan_handles_rule_id_variations(self) -> None:
-        """Handle different rule ID formats."""
-        # Arrange
-        rule_ids = [
-            "python.django.security.sql-injection",
-            "javascript.express.security.xss",
-            "generic.secrets.security.hardcoded-secret",
-            "ruby.rails.security.command-injection"
-        ]
-
-        # Act & Assert
-        assert len(rule_ids) == 4
-        assert all("." in r for r in rule_ids)  # Language.tool.category.issue format
-
-    def test_scan_with_multiple_languages(self, tmp_path: Path) -> None:
-        """Scan project with multiple languages."""
-        # Arrange
-        project_dir = tmp_path
-        (project_dir / "app.py").write_text("import pickle")
-        (project_dir / "app.js").write_text("eval(userInput)")
-        (project_dir / "app.rb").write_text("system(cmd)")
-
-        # Act & Assert
-        assert (project_dir / "app.py").exists()
-        assert (project_dir / "app.js").exists()
-        assert (project_dir / "app.rb").exists()
-
-    # ===== Rule ID to Name Mapping (Optional) =====
-
-    def test_semgrep_rule_id_to_name_mapping(self) -> None:
-        """Map Semgrep rule IDs to human-readable names."""
-        # Arrange
-        rule_ids = {
-            "python.django.security.sql-injection": "Django SQL Injection",
-            "javascript.express.security.xss": "Express XSS",
-            "generic.secrets.security.hardcoded-secret": "Hardcoded Secret"
-        }
-
-        # Act & Assert
-        for rule_id, expected_name in rule_ids.items():
-            assert rule_id is not None
-            assert isinstance(expected_name, str)
-            assert len(expected_name) > 0
+    def test_run_returns_findings_list(self) -> None:
+        """Test run method returns list of Finding objects."""
+        config: dict[str, Any] = {"rulesets": ["p/security-audit"]}
+        runner = SemgrepRunner(config)
+        
+        mock_output = '{"results": [{"check_id": "rule1", "severity": "INFO", "message": "Test", "path": "file.py", "start": {"line": 1}}]}'
+        
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=mock_output)
+            findings = runner.run("https://github.com/test/repo.git", mkdtemp())
+            
+            assert all(isinstance(f, Finding) for f in findings), "All items should be Finding objects"

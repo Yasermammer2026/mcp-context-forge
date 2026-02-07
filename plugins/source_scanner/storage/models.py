@@ -11,7 +11,6 @@ supporting deduplication via stable keys and commit SHA lookups.
 #
 from datetime import datetime, timezone
 
-#from sqlalchemy import Column, ForeignKey, Integer, String, Text, DateTime, Boolean, Index, UniqueConstraint
 from sqlalchemy import ForeignKey, Integer, String, Text, DateTime, Boolean, Index, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship, Mapped, mapped_column
 
