@@ -10,7 +10,9 @@ Data schemas for findings and scan results.
 from __future__ import annotations
 
 # Standard
-from typing import List, Optional, Literal
+from typing import Tuple, List, Optional, Literal, Annotated
+
+
 
 # Third-Party
 from pydantic import BaseModel, Field
@@ -41,14 +43,19 @@ class Finding(BaseModel):
     code_snippet: Optional[str] = None
     help_url: Optional[str] = None
 
-    def dedup_key(self) -> tuple:
+    def dedup_key(self) -> Tuple[str, str, Optional[str], Optional[int], str]:
         """Generate deduplication key.
 
         Returns:
             Tuple of (scanner, rule_id, file_path, line, message).
         """
-        return (self.scanner, self.rule_id, self.file_path, self.line, self.message)
-
+        return (
+            self.scanner,
+            self.rule_id,
+            self.file_path,
+            self.line,
+            self.message,
+        )
 
 class ScanSummary(BaseModel):
     """Summary statistics for scan results.
@@ -82,7 +89,7 @@ class ScanResult(BaseModel):
     ref: Optional[str] = None
     commit_sha: Optional[str] = None
     languages: List[str] = Field(default_factory=list)
-    findings: List[Finding] = Field(default_factory=list)
+    findings: Annotated[list[Finding], Field(default_factory=list)]
     summary: ScanSummary = Field(default_factory=ScanSummary)
     blocked: bool = False
     block_reason: Optional[str] = None
