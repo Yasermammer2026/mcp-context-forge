@@ -48,6 +48,15 @@ minikube-*
 .htpasswd
 .env.gcr
 packages-lock.json
+
+# Learning materials - Data & Backend Integration Lead
+IMPLEMENTATION_LEARNING_GUIDE.md
+IMPLEMENTATION_COMPLETE.md
+DATABASE_SETUP_GUIDE.md
+QUICK_REFERENCE.md
+VISUAL_DIAGRAMS.md
+BACKEND_INTEGRATION_STRUCTURE.md
+CHECKLIST_NEXT_STEPS.md
 packages.json
 node_modules/
 ./depsort*
