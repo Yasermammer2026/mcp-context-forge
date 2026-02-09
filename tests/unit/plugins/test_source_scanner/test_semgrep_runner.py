@@ -1,6 +1,12 @@
+#!/usr/bin/env python3  
 # -*- coding: utf-8 -*-
-"""Unit tests for Semgrep runner integration.
+"""
+Location: tests/unit/plugins/test_source_scanner/test_semgrep_runner.py
+Copyright: 2025
+SPDX-License-Identifier: Apache-2.0
+Authors: Yaser 
 
+Unit tests for Semgrep runner integration.
 Test coverage includes:
 - Initialization with various configurations
 - Command building with different rulesets and arguments

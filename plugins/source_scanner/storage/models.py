@@ -3,7 +3,7 @@
 """Location: ./plugins/source_scanner/storage/models.py
 Copyright 2025
 SPDX-License-Identifier: Apache-2.0
-Authors: Yaser
+Authors: Arnav
 
 SQLAlchemy ORM models for Source Scanner persistence layer.
 

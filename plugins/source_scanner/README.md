@@ -17,6 +17,13 @@ Provides pre-deployment static analysis of MCP server source code using Semgrep 
 - `storage/`: SQLAlchemy persistence layer for scan records (used with ScanRepository)
 
 ## Status
-This is an initial scaffold PR. Functionality is partially implemented; follow-up PRs will add:
+This is an initial scaffold PR. Functionality is partially implemented; 
+Implemented in this PR:
+- Plugin skeleton and registration
+- Git repository cloning
+- Semgrep CLI invocation
+- Normalised finding model
+
+Follow-up PRs will add:
 - Admin UI integration
 - Bandit integration

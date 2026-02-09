@@ -1,4 +1,12 @@
-"""Shared pytest fixtures and configuration for source scanner tests."""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Location: tests/unit/plugins/test_source_scanner/__init__.py
+Copyright: 2025
+SPDX-License-Identifier: Apache-2.0
+Authors: Yaser
+Unit tests for MCP Source Scanner Plugin.
+Shared pytest fixtures and configuration for source scanner tests."""
 
 import pytest
 from pathlib import Path

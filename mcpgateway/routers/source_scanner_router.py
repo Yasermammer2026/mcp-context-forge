@@ -1,8 +1,10 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Location: ./mcpgateway/routers/source_scanner_router.py
 
 Copyright 2025
 SPDX-License-Identifier: Apache-2.0
+Authors: Arnav
 
 FastAPI Router for Source Scanner Results API.
 """
@@ -10,7 +12,6 @@ FastAPI Router for Source Scanner Results API.
 from __future__ import annotations
 
 # Standard
-#import logging
 from typing import Annotated, Any, Dict, List, Optional
 
 # Third-Party
@@ -27,13 +28,6 @@ from plugins.source_scanner.storage.repository import ScanRepository
 REPOSITORY_AVAILABLE = True
 
 
-# try:
-#     from plugins.source_scanner.storage.repository import ScanRepository
-#     REPOSITORY_AVAILABLE = True
-# except ImportError:
-#     REPOSITORY_AVAILABLE = False
-#     logging.getLogger(__name__).warning("ScanRepository not available")
-
 logger = LoggingService().get_logger(__name__)
 
 source_scanner_router = APIRouter(
@@ -41,9 +35,6 @@ source_scanner_router = APIRouter(
     tags=["Source Scanner"],
     dependencies=[Depends(get_current_user)],
 )
-
-
-#from __future__ import annotations  # <-- postpones evaluation of annotations
 
 class FindingResponse(BaseModel):
     """Single finding response."""
