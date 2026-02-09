@@ -12,7 +12,7 @@ Configuration models for Source Scanner Plugin.
 from __future__ import annotations
 
 # Standard
-from typing import List, Optional, Literal, Any
+from typing import Any, List, Literal, Optional
 
 # Third-Party
 from pydantic import BaseModel, Field
@@ -53,6 +53,7 @@ class BanditConfig(BaseModel):
     severity: Literal["low", "medium", "high"] = "medium"
     confidence: Literal["low", "medium", "high"] = "medium"
 
+
 class ScannersConfig(BaseModel):
     """Generic scanner configuration.
 
@@ -62,7 +63,7 @@ class ScannersConfig(BaseModel):
     """
 
     semgrep: SemgrepConfig = Field(default_factory=SemgrepConfig)
-    bandit: BanditConfig = Field(default_factory=BanditConfig)  
+    bandit: BanditConfig = Field(default_factory=BanditConfig)
 
 
 class SourceScannerConfig(BaseModel):
@@ -81,11 +82,12 @@ class SourceScannerConfig(BaseModel):
         cache_by_commit: Whether to cache results by commit SHA.
         cache_ttl_hours: Cache time-to-live in hours.
     """
+
     scanners: Optional[ScannersConfig] = None
     semgrep: SemgrepConfig = Field(default_factory=SemgrepConfig)
     bandit: BanditConfig = Field(default_factory=BanditConfig)
-    
-    severity_threshold: Literal["ERROR","WARNING","INFO"] = "WARNING"  # ERROR | WARNING | INFO
+
+    severity_threshold: Literal["ERROR", "WARNING", "INFO"] = "WARNING"  # ERROR | WARNING | INFO
     fail_on_critical: bool = True
     clone_timeout_seconds: int = 120
     scan_timeout_seconds: int = 600

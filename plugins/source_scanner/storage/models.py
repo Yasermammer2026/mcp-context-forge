@@ -11,11 +11,14 @@ Note: This module defines the persistence layer for storing scan results and fin
 Currently, it is used internally by the repository layer.
 Full integration with admin UI / caching / deployment hooks will be added in follow-up PRs.
 """
+
+# Standard
 #
 from datetime import datetime, timezone
 
-from sqlalchemy import ForeignKey, Integer, String, Text, DateTime, Boolean, Index, UniqueConstraint
-from sqlalchemy.orm import declarative_base, relationship, Mapped, mapped_column
+# Third-Party
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import declarative_base, Mapped, mapped_column, relationship
 
 Base = declarative_base()
 
@@ -35,9 +38,7 @@ class ScanRecord(Base):
     error_count: Mapped[int] = mapped_column(Integer, default=0)
     warning_count: Mapped[int] = mapped_column(Integer, default=0)
     info_count: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
 
     findings: Mapped[list["FindingRecord"]] = relationship("FindingRecord", back_populates="scan", cascade="all, delete-orphan")
 

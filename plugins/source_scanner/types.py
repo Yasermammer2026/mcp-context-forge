@@ -12,9 +12,7 @@ Data schemas for findings and scan results.
 from __future__ import annotations
 
 # Standard
-from typing import Tuple, List, Optional, Literal, Annotated
-
-
+from typing import List, Literal, Optional
 
 # Third-Party
 from pydantic import BaseModel, Field
@@ -36,7 +34,7 @@ class Finding(BaseModel):
     """
 
     scanner: str
-    severity: Literal["ERROR","WARNING","INFO"]  # ERROR | WARNING | INFO
+    severity: Literal["ERROR", "WARNING", "INFO"]  # ERROR | WARNING | INFO
     rule_id: str
     message: str
     file_path: Optional[str] = None
@@ -58,6 +56,7 @@ class Finding(BaseModel):
             self.line,
             self.message,
         )
+
 
 class ScanSummary(BaseModel):
     """Summary statistics for scan results.

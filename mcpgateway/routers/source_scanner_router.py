@@ -8,6 +8,7 @@ Authors: Arnav
 
 FastAPI Router for Source Scanner Results API.
 """
+
 # Future
 from __future__ import annotations
 
@@ -36,8 +37,10 @@ source_scanner_router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
+
 class FindingResponse(BaseModel):
     """Single finding response."""
+
     id: int
     scanner: str
     severity: str
@@ -53,9 +56,9 @@ class FindingResponse(BaseModel):
         from_attributes = True
 
 
-
 class ScanSummaryResponse(BaseModel):
     """Scan summary statistics."""
+
     error_count: int = 0
     warning_count: int = 0
     info_count: int = 0
@@ -63,6 +66,7 @@ class ScanSummaryResponse(BaseModel):
 
 class ScanResponse(BaseModel):
     """Scan record response."""
+
     id: int
     repo_url: str
     ref: Optional[str] = None
@@ -77,13 +81,10 @@ class ScanResponse(BaseModel):
         from_attributes = True
 
 
-
 class ScanWithFindingsResponse(ScanResponse):
     """Scan response with findings."""
 
     findings: Annotated[list[FindingResponse], Field(default_factory=list)]
-
-
 
 
 @source_scanner_router.get("/scans/{scan_id}", response_model=ScanWithFindingsResponse)
@@ -156,11 +157,7 @@ async def get_scan_findings(
     if not scan:
         raise HTTPException(status_code=404, detail=f"Scan {scan_id} not found")
 
-    findings = (
-        repository.get_findings_by_severity(scan_id, severity)
-        if severity
-        else repository.get_findings_for_scan(scan_id)
-    )
+    findings = repository.get_findings_by_severity(scan_id, severity) if severity else repository.get_findings_for_scan(scan_id)
 
     return [
         FindingResponse(
@@ -195,10 +192,7 @@ async def get_latest_scan(
 
     if not scan:
         logger.info(f"No scan found for repo={repo_url}, commit={commit_sha}")
-        raise HTTPException(
-            status_code=404,
-            detail=f"No scan found for commit {commit_sha} in {repo_url}"
-        )
+        raise HTTPException(status_code=404, detail=f"No scan found for commit {commit_sha} in {repo_url}")
 
     findings_response = [
         FindingResponse(
