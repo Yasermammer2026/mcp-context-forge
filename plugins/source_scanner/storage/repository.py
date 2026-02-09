@@ -1,11 +1,15 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Location: ./plugins/source_scanner/storage/repository.py
 
 Copyright 2025
 SPDX-License-Identifier: Apache-2.0
+Authors: Arnav
 
 Repository layer for Source Scanner persistence.
 
+Provides CRUD access to ScanRecord and FindingRecord.
+Currently uses SQLAlchemy; designed for incremental integration.
 """
 
 # from datetime import datetime, timezone

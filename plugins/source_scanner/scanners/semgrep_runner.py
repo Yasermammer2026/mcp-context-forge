@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Semgrep scanner runner for Source Scanner.
+
+Location: ./plugins/source_scanner/scanners/semgrep_runner.py
+Copyright 2025
+SPDX-License-Identifier: Apache-2.0
+Authors: Agnetha
+
+This module implements Semgrep CLI integration for static code analysis.
+Parses SARIF output into normalized Finding objects.
+"""
+
 import subprocess
 import json
 from typing import Any, Literal

@@ -6,20 +6,24 @@ SPDX-License-Identifier: Apache-2.0
 
 FastAPI Router for Source Scanner Results API.
 """
+# Future
 from __future__ import annotations
 
+# Standard
 #import logging
-from typing import Any, Dict, List, Optional, Annotated
+from typing import Annotated, Any, Dict, List, Optional
 
+# Third-Party
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+# First-Party
 from mcpgateway.auth import get_current_user
 from mcpgateway.db import get_db
 from mcpgateway.services.logging_service import LoggingService
-
 from plugins.source_scanner.storage.repository import ScanRepository
+
 REPOSITORY_AVAILABLE = True
 
 

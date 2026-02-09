@@ -1,12 +1,15 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Location: ./plugins/source_scanner/storage/models.py
 Copyright 2025
 SPDX-License-Identifier: Apache-2.0
+Authors: Yaser
 
 SQLAlchemy ORM models for Source Scanner persistence layer.
 
-This module defines database tables for storing scan results and findings,
-supporting deduplication via stable keys and commit SHA lookups.
+Note: This module defines the persistence layer for storing scan results and findings.
+Currently, it is used internally by the repository layer.
+Full integration with admin UI / caching / deployment hooks will be added in follow-up PRs.
 """
 #
 from datetime import datetime, timezone

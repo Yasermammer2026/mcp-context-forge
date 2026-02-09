@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Location: ./plugins/source_scanner/types.py
 Copyright 2025
 SPDX-License-Identifier: Apache-2.0
+Authors: Xinyi, Ayo
 
 Data schemas for findings and scan results.
 """
