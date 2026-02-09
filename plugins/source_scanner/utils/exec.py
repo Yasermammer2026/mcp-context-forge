@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Location: ./plugins/source_scanner/utils/exec.py
 Copyright 2025
 SPDX-License-Identifier: Apache-2.0
+Authors: Xinyi, Ayo
 
 Subprocess wrapper with timeout, stdout/stderr capture, and return code handling.
 """
@@ -37,12 +39,7 @@ class ExecResult:
         self.timed_out = timed_out
 
     def __repr__(self) -> str:
-        return (
-            f"ExecResult(returncode={self.returncode}, "
-            f"timed_out={self.timed_out}, "
-            f"stdout_len={len(self.stdout)}, "
-            f"stderr_len={len(self.stderr)})"
-        )
+        return f"ExecResult(returncode={self.returncode}, " f"timed_out={self.timed_out}, " f"stdout_len={len(self.stdout)}, " f"stderr_len={len(self.stderr)})"
 
 
 async def run_command(
