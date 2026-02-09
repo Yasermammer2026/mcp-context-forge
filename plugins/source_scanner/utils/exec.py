@@ -49,7 +49,7 @@ async def run_command(
     cmd: List[str],
     timeout_seconds: Optional[int] = None,
     cwd: Optional[str] = None,
-    env: Optional[dict] = None,
+    env: Optional[dict[str, str]] = None,
 ) -> ExecResult:
     """Execute a command with optional timeout.
 
