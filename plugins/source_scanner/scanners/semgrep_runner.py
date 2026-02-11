@@ -1,8 +1,11 @@
+import logging
 import subprocess
 import json
 from typing import Any, Literal
 
 from plugins.source_scanner.types import Finding
+
+logger = logging.getLogger(__name__)
 class SemgrepRunner:
     def __init__(self, config: dict[str, Any]):
         self.config = config
@@ -29,11 +32,11 @@ class SemgrepRunner:
             
             # Print message based on findings
             if not findings:
-                print("No findings detected.")
+                logger.info("No findings detected.")
             else:
-                print(f"Found {len(findings)} issue(s):")
+                logger.info(f"Found {len(findings)} issue(s):")
                 for f in findings:
-                    print(f"  [{f.severity}] {f.rule_id} at {f.file_path}:{f.line}")
+                    logger.info(f"  [{f.severity}] {f.rule_id} at {f.file_path}:{f.line}")
             
             return findings
         finally:
@@ -95,7 +98,7 @@ class SemgrepRunner:
         try:
             subprocess.run(["rm", "-rf", temp_folder], check=True)
         except Exception as e:
-            print(f"Warning: Failed to delete temp folder {temp_folder}: {e}")
+            logger.warning(f"Warning: Failed to delete temp folder {temp_folder}: {e}")
 
 
 def _clone_repo(repo_url: str, temp_folder: str) -> None:
