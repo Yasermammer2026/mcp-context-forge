@@ -1,0 +1,14 @@
+pathlib
+typing
+pytest
+pytest-cov
+pytest-mock
+sqlalchemy
+black
+ruff
+pytest-asyncio
+pytest-env
+isort
+pylint
+make
+pytest-cov

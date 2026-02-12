@@ -37,7 +37,6 @@ from .types import Finding, ScanResult, ScanSummary
 # from pydantic import BaseModel, Field
 
 
-
 # Components (to be imported when implemented)
 # from .repo_fetcher import RepoFetcher
 # from .language_detector import LanguageDetector
