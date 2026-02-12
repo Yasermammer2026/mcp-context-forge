@@ -1,4 +1,3 @@
-# tests/unit/plugins/test_source_scanner/__init__.py
 """
 Unit tests for MCP Source Scanner Plugin.
 

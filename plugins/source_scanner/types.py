@@ -43,7 +43,7 @@ class Finding(BaseModel):
     code_snippet: Optional[str] = None
     help_url: Optional[str] = None
 
-    def dedup_key(self) -> Tuple[str, str, Optional[str], Optional[int], str]:
+    def dedup_key(self) -> tuple[str, str, Optional[str], Optional[int], str]:
         """Generate deduplication key.
 
         Returns:
@@ -70,6 +70,11 @@ class ScanSummary(BaseModel):
     warning_count: int = 0
     info_count: int = 0
 
+    @property
+    def total_findings(self) -> int:
+        """Calculate total findings count."""
+        return self.error_count + self.warning_count + self.info_count
+
 
 class ScanResult(BaseModel):
     """Complete scan result contract.
@@ -89,7 +94,20 @@ class ScanResult(BaseModel):
     ref: Optional[str] = None
     commit_sha: Optional[str] = None
     languages: List[str] = Field(default_factory=list)
-    findings: Annotated[list[Finding], Field(default_factory=list)]
+    findings: List[Finding] = Field(default_factory=lambda: [])
     summary: ScanSummary = Field(default_factory=ScanSummary)
     blocked: bool = False
     block_reason: Optional[str] = None
+
+
+class PolicyDecision(BaseModel):
+    """Result of policy evaluation.
+
+    Attributes:
+        blocked: Whether the workflow should be blocked.
+        reason: Explanation for blocking, if applicable.
+    """
+
+    blocked: bool
+    reason: Optional[str] = None
+    scan_duration_seconds: Optional[float] = None
