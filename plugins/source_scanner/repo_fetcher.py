@@ -2,7 +2,7 @@
 # -- coding: utf-8 --
 """
 Location: ./plugins/source_scanner/repo_fetcher.py
-Copyright 2025
+Copyright 2026
 SPDX-License-Identifier: Apache-2.0
 Authors:
 

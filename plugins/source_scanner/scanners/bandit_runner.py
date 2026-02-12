@@ -3,7 +3,7 @@
 """Bandit scanner runner for Source Scanner.
 
 Location: ./plugins/source_scanner/scanners/bandit_runner.py
-Copyright 2025
+Copyright 2026
 SPDX-License-Identifier: Apache-2.0
 Authors:
 
