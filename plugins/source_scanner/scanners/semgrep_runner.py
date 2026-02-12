@@ -1,6 +1,8 @@
 import logging
-import subprocess
+import shutil
 import json
+import os
+from utils.exec import run_command
 from typing import Any, Literal
 
 from plugins.source_scanner.types import Finding
@@ -14,15 +16,15 @@ class SemgrepRunner:
         self.extra_args = config.get("extra_args", [])
         self.timeout = config.get("timeout", 300)        
 
-    def run(self, repo_url: str, temp_folder: str) -> list[Finding]:
+    async def run(self, repo_url: str, temp_folder: str) -> list[Finding]:
         try:
             # Clone repository
-            _clone_repo(repo_url, temp_folder)
+            await _clone_repo(repo_url, temp_folder)
             
             # Build and run semgrep command
             command = self.build_command(temp_folder)
-            result = subprocess.run(command, capture_output=True, text=True, timeout=self.timeout)
-            
+            #result = subprocess.run(command, capture_output=True, text=True, timeout=self.timeout)
+            result = await run_command(command, cwd=None, env=os.environ.copy())
             # Parse output even if semgrep finds issues (return code 1 is normal)
             if result.returncode not in (0, 1):
                 raise Exception(f"Semgrep failed: {result.stderr}")
@@ -96,14 +98,15 @@ class SemgrepRunner:
 
     def delete_temp_repo(self, temp_folder: str) -> None:
         try:
-            subprocess.run(["rm", "-rf", temp_folder], check=True)
+            shutil.rmtree(temp_folder, ignore_errors=False)
         except Exception as e:
             logger.warning(f"Warning: Failed to delete temp folder {temp_folder}: {e}")
 
 
-def _clone_repo(repo_url: str, temp_folder: str) -> None:
+async def _clone_repo(repo_url: str, temp_folder: str) -> None:
     """Clone repository to temporary folder."""
-    subprocess.run(["git", "clone", "--depth", "1", repo_url, temp_folder], check=True)
+    git_command = ["git", "clone", "--depth", "1", "--", repo_url, temp_folder]
+    await run_command(git_command, cwd=None, env=os.environ.copy())
 
 
 Severity = Literal["ERROR", "WARNING", "INFO"]
