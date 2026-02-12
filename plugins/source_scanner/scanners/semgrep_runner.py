@@ -1,8 +1,13 @@
-import subprocess
+import os
+import logging
+import shutil
 import json
+from utils.exec import run_command
 from typing import Any, Literal
 
 from plugins.source_scanner.types import Finding
+
+logger = logging.getLogger(__name__)
 class SemgrepRunner:
     def __init__(self, config: dict[str, Any]):
         self.config = config
@@ -11,15 +16,15 @@ class SemgrepRunner:
         self.extra_args = config.get("extra_args", [])
         self.timeout = config.get("timeout", 300)        
 
-    def run(self, repo_url: str, temp_folder: str) -> list[Finding]:
+    async def run(self, repo_url: str, temp_folder: str) -> list[Finding]:
         try:
             # Clone repository
-            _clone_repo(repo_url, temp_folder)
+            await _clone_repo(repo_url, temp_folder)
             
             # Build and run semgrep command
             command = self.build_command(temp_folder)
-            result = subprocess.run(command, capture_output=True, text=True, timeout=self.timeout)
-            
+            #result = subprocess.run(command, capture_output=True, text=True, timeout=self.timeout)
+            result = await run_command(command, cwd=None, env=os.environ.copy())
             # Parse output even if semgrep finds issues (return code 1 is normal)
             if result.returncode not in (0, 1):
                 raise Exception(f"Semgrep failed: {result.stderr}")
@@ -29,11 +34,11 @@ class SemgrepRunner:
             
             # Print message based on findings
             if not findings:
-                print("No findings detected.")
+                logger.info("No findings detected.")
             else:
-                print(f"Found {len(findings)} issue(s):")
+                logger.info(f"Found {len(findings)} issue(s):")
                 for f in findings:
-                    print(f"  [{f.severity}] {f.rule_id} at {f.file_path}:{f.line}")
+                    logger.info(f"  [{f.severity}] {f.rule_id} at {f.file_path}:{f.line}")
             
             return findings
         finally:
@@ -93,14 +98,15 @@ class SemgrepRunner:
 
     def delete_temp_repo(self, temp_folder: str) -> None:
         try:
-            subprocess.run(["rm", "-rf", temp_folder], check=True)
+            shutil.rmtree(temp_folder, ignore_errors=False)
         except Exception as e:
-            print(f"Warning: Failed to delete temp folder {temp_folder}: {e}")
+            logger.warning(f"Warning: Failed to delete temp folder {temp_folder}: {e}")
 
 
-def _clone_repo(repo_url: str, temp_folder: str) -> None:
+async def _clone_repo(repo_url: str, temp_folder: str) -> None:
     """Clone repository to temporary folder."""
-    subprocess.run(["git", "clone", "--depth", "1", repo_url, temp_folder], check=True)
+    git_command = ["git", "clone", "--depth", "1", "--", repo_url, temp_folder]
+    await run_command(git_command, cwd=None, env=os.environ.copy())
 
 
 Severity = Literal["ERROR", "WARNING", "INFO"]
