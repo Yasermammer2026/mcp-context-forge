@@ -1,21 +1,30 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Location: ./plugins/source_scanner/storage/repository.py
 
-Copyright 2025
+Copyright 2026
 SPDX-License-Identifier: Apache-2.0
+Authors: Arnav
 
 Repository layer for Source Scanner persistence.
 
+Provides CRUD access to ScanRecord and FindingRecord.
+Currently uses SQLAlchemy; designed for incremental integration.
 """
 
+# Standard
 # from datetime import datetime, timezone
 from typing import List, Optional
 
+# Third-Party
 from sqlalchemy.orm import Session
 
+# First-Party
+from plugins.source_scanner.storage.models import FindingRecord, ScanRecord
 from plugins.source_scanner.types import Finding
-from plugins.source_scanner.storage.models import ScanRecord, FindingRecord
+
 #
+
 
 class ScanRepository:
     """Repository for accessing and storing scan records."""
@@ -78,7 +87,7 @@ class ScanRepository:
         # Create FindingRecords for each finding
         for finding in findings:
             key_tuple = finding.dedup_key()  # dedup_key() returns a tuple
-    
+
             # Serialize tuple to a string for the DB column
             dedup_key: str = "|".join([str(x) for x in key_tuple])
 
@@ -110,9 +119,7 @@ class ScanRepository:
         Returns:
             ScanRecord if found, None otherwise.
         """
-        return self.db.query(ScanRecord).filter(
-            ScanRecord.id == scan_id
-        ).first()
+        return self.db.query(ScanRecord).filter(ScanRecord.id == scan_id).first()
 
     def get_findings_for_scan(self, scan_id: int) -> List[FindingRecord]:
         """Retrieve all findings for a given scan.
@@ -126,16 +133,12 @@ class ScanRepository:
         # Severity order: ERROR > WARNING > INFO
         severity_order = {"ERROR": 0, "WARNING": 1, "INFO": 2}
 
-        findings = self.db.query(FindingRecord).filter(
-            FindingRecord.scan_id == scan_id
-        ).all()
+        findings = self.db.query(FindingRecord).filter(FindingRecord.scan_id == scan_id).all()
 
         # Sort by severity first, then by file_path
-        findings.sort(
-            key=lambda f: (severity_order.get(getattr(f, "severity", ""), 3), getattr(f, "file_path", "") or "")
-        )
+        findings.sort(key=lambda f: (severity_order.get(getattr(f, "severity", ""), 3), getattr(f, "file_path", "") or ""))
 
-        #findings.sort(key=lambda f: (severity_order.get(f.severity, 3), f.file_path or ""))
+        # findings.sort(key=lambda f: (severity_order.get(f.severity, 3), f.file_path or ""))
         return findings
 
     def get_latest_scan_for_commit(
@@ -152,10 +155,15 @@ class ScanRepository:
         Returns:
             Most recent ScanRecord if found, None otherwise.
         """
-        return self.db.query(ScanRecord).filter(
-            ScanRecord.repo_url == repo_url,
-            ScanRecord.commit_sha == commit_sha,
-        ).order_by(ScanRecord.created_at.desc()).first()
+        return (
+            self.db.query(ScanRecord)
+            .filter(
+                ScanRecord.repo_url == repo_url,
+                ScanRecord.commit_sha == commit_sha,
+            )
+            .order_by(ScanRecord.created_at.desc())
+            .first()
+        )
 
     def get_scans_for_repo(
         self,
@@ -173,9 +181,7 @@ class ScanRepository:
         Returns:
             List of ScanRecord objects ordered by creation time (newest first).
         """
-        return self.db.query(ScanRecord).filter(
-            ScanRecord.repo_url == repo_url
-        ).order_by(ScanRecord.created_at.desc()).offset(offset).limit(limit).all()
+        return self.db.query(ScanRecord).filter(ScanRecord.repo_url == repo_url).order_by(ScanRecord.created_at.desc()).offset(offset).limit(limit).all()
 
     def get_findings_by_severity(
         self,
@@ -191,10 +197,15 @@ class ScanRepository:
         Returns:
             List of FindingRecord objects matching the severity.
         """
-        return self.db.query(FindingRecord).filter(
-            FindingRecord.scan_id == scan_id,
-            FindingRecord.severity == severity,
-        ).order_by(FindingRecord.file_path).all()
+        return (
+            self.db.query(FindingRecord)
+            .filter(
+                FindingRecord.scan_id == scan_id,
+                FindingRecord.severity == severity,
+            )
+            .order_by(FindingRecord.file_path)
+            .all()
+        )
 
     def delete_scan(self, scan_id: int) -> bool:
         """Delete a scan and all its associated findings.
@@ -205,9 +216,7 @@ class ScanRepository:
         Returns:
             True if scan was deleted, False if not found.
         """
-        scan = self.db.query(ScanRecord).filter(
-            ScanRecord.id == scan_id
-        ).first()
+        scan = self.db.query(ScanRecord).filter(ScanRecord.id == scan_id).first()
         if not scan:
             return False
 
