@@ -12,3 +12,5 @@ isort
 pylint
 make
 pytest-cov
+bandit
+semgrep
