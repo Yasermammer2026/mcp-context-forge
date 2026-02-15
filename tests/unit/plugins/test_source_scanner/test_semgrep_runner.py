@@ -471,7 +471,8 @@ class TestFindingObject:
 class TestIntegration:
     """Integration tests requiring actual semgrep installation."""
 
-    def test_run_returns_list(self) -> None:
+    @pytest.mark.asyncio
+    async def test_run_returns_list(self) -> None:
         """Test run method returns a list."""
         config: dict[str, Any] = {"rulesets": ["p/security-audit"]}
         runner = SemgrepRunner(config)
@@ -481,11 +482,12 @@ class TestIntegration:
                 returncode=0,
                 stdout='{"results": []}'
             )
-            findings = runner.run("https://github.com/test/repo.git", mkdtemp())
+            findings = await runner.run("https://github.com/test/repo.git", mkdtemp())
             
             assert isinstance(findings, list), f"run() should return list, got {type(findings)}"
 
-    def test_run_returns_findings_list(self) -> None:
+    @pytest.mark.asyncio
+    async def test_run_returns_findings_list(self) -> None:
         """Test run method returns list of Finding objects."""
         config: dict[str, Any] = {"rulesets": ["p/security-audit"]}
         runner = SemgrepRunner(config)
@@ -494,6 +496,6 @@ class TestIntegration:
         
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout=mock_output)
-            findings = runner.run("https://github.com/test/repo.git", mkdtemp())
+            findings = await runner.run("https://github.com/test/repo.git", mkdtemp())
             
             assert all(isinstance(f, Finding) for f in findings), "All items should be Finding objects"

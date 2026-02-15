@@ -2,10 +2,10 @@ import os
 import logging
 import shutil
 import json
-from utils.exec import run_command
 from typing import Any, Literal
 
 from plugins.source_scanner.types import Finding
+from plugins.source_scanner.utils.exec import run_command
 
 logger = logging.getLogger(__name__)
 class SemgrepRunner:
@@ -80,11 +80,18 @@ class SemgrepRunner:
         results = sarif_data.get("results", [])
         
         for result in results:
+            # Extract message with multiple fallbacks to ensure it's never None
+            message = (
+                result.get("extra", {}).get("message")
+                or result.get("message")
+                or f"{result.get('check_id', 'unknown')} detected"
+            )
+            
             finding = Finding(
                 scanner="semgrep",
                 severity=_map_severity(result.get("severity", "INFO")),
                 rule_id=result.get("check_id", "unknown"),
-                message=result.get("extra", {}).get("message", result.get("message", "")),
+                message=message,
                 file_path=result.get("path", None),
                 line=result.get("start", {}).get("line", None),
                 column=result.get("start", {}).get("col", None),
