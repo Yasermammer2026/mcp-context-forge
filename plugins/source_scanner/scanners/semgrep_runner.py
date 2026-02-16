@@ -19,12 +19,12 @@ class SemgrepRunner:
     async def run(self, repo_url: str, temp_folder: str) -> list[Finding]:
         try:
             # Clone repository
-            await _clone_repo(repo_url, temp_folder)
+            await _clone_repo(repo_url, temp_folder, timeout_seconds=self.timeout)
             
             # Build and run semgrep command
             command = self.build_command(temp_folder)
             #result = subprocess.run(command, capture_output=True, text=True, timeout=self.timeout)
-            result = await run_command(command, cwd=None, env=os.environ.copy())
+            result = await run_command(command, timeout_seconds=self.timeout, cwd=None, env=os.environ.copy())
             # Parse output even if semgrep finds issues (return code 1 is normal)
             if result.returncode not in (0, 1):
                 raise Exception(f"Semgrep failed: {result.stderr}")
@@ -110,10 +110,10 @@ class SemgrepRunner:
             logger.warning(f"Warning: Failed to delete temp folder {temp_folder}: {e}")
 
 
-async def _clone_repo(repo_url: str, temp_folder: str) -> None:
+async def _clone_repo(repo_url: str, temp_folder: str, timeout_seconds: int = 300) -> None:
     """Clone repository to temporary folder."""
     git_command = ["git", "clone", "--depth", "1", "--", repo_url, temp_folder]
-    await run_command(git_command, cwd=None, env=os.environ.copy())
+    await run_command(git_command, timeout_seconds=timeout_seconds, cwd=None, env=os.environ.copy())
 
 
 Severity = Literal["ERROR", "WARNING", "INFO"]
