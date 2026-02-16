@@ -33,12 +33,14 @@ class ExecResult:
         stderr: str,
         timed_out: bool = False,
     ) -> None:
+        """Create an execution result container for a completed command."""
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
         self.timed_out = timed_out
 
     def __repr__(self) -> str:
+        """Return a summary string of the execution result."""
         return f"ExecResult(returncode={self.returncode}, " f"timed_out={self.timed_out}, " f"stdout_len={len(self.stdout)}, " f"stderr_len={len(self.stderr)})"
 
 

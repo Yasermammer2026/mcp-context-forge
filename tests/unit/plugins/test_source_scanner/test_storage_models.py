@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 Authors: Yaser
 """
 
+# First-Party
 from plugins.source_scanner.storage.models import FindingRecord, ScanRecord
 
 

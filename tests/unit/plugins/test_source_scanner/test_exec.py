@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 Authors: Yaser
 """
 
+# Standard
 import sys
 
+# Third-Party
 import pytest
 
+# First-Party
 from plugins.source_scanner.utils.exec import ExecResult, run_command
 
 

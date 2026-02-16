@@ -84,7 +84,9 @@ class RepoFetcher:
             commit_sha = await self._get_commit_sha(temp_dir)
 
             workspace = Workspace(path=temp_dir, commit_sha=commit_sha)
-            cleanup_fn = lambda: self._cleanup(temp_dir)
+
+            def cleanup_fn() -> None:
+                self._cleanup(temp_dir)
 
             logger.info(f"Repository cloned successfully: {commit_sha}")
             return workspace, cleanup_fn
