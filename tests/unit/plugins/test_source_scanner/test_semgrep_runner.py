@@ -13,7 +13,7 @@ Test coverage includes:
 import pytest
 from tempfile import mkdtemp
 from typing import Any
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import patch, AsyncMock
 
 from plugins.source_scanner.scanners.semgrep_runner import SemgrepRunner
 from plugins.source_scanner.types import Finding
