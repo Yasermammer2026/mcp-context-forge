@@ -83,9 +83,9 @@ lint:formatting:
   script:
     - uv pip install --system black isort
     - echo "Checking code formatting (Black)..."
-    - black --check --diff mcpgateway/ tests/ scripts/ || true
+    - black --check --diff mcpgateway/ plugins/ tests/ scripts/ || true
     - echo "Checking import sorting (isort)..."
-    - isort --check-only --diff mcpgateway/ tests/ scripts/ || true
+    - isort --check-only --diff mcpgateway/ plugins/ tests/ scripts/ || true
   allow_failure: true
   artifacts:
     reports:
@@ -100,8 +100,8 @@ lint:security-bandit:
   script:
     - uv pip install --system bandit
     - echo "Running Bandit security analysis..."
-    - bandit -r mcpgateway/ -f json -o bandit-report.json --severity-level medium || true
-    - bandit -r mcpgateway/ --severity-level medium || true
+    - bandit -r mcpgateway/ plugins/ -f json -o bandit-report.json --severity-level medium || true
+    - bandit -r mcpgateway/ plugins/ --severity-level medium || true
   artifacts:
     reports:
       sast: bandit-report.json
@@ -128,7 +128,7 @@ lint:flake8:
   script:
     - uv pip install --system flake8 flake8-bugbear flake8-async
     - echo "Running Flake8..."
-    - flake8 mcpgateway/ tests/ scripts/ --config .flake8 --count || true 
+    - flake8 mcpgateway/ plugins/ tests/ scripts/ --config .flake8 --count || true 
   allow_failure: true
   artifacts:
     expire_in: 1 week
@@ -150,6 +150,7 @@ test:unit:py311:
       uv run pytest \
         --ignore=tests/fuzz \
         --cov=mcpgateway \
+        --cov=plugins \
         --cov-report=xml \
         --cov-report=html \
         --cov-report=term \
@@ -183,6 +184,7 @@ test:unit:py312:
       uv run pytest \
         --ignore=tests/fuzz \
         --cov=mcpgateway \
+        --cov=plugins \
         --cov-report=xml \
         --cov-report=html \
         --cov-report=term \
@@ -215,6 +217,7 @@ test:unit:py313:
       uv run pytest \
         --ignore=tests/fuzz \
         --cov=mcpgateway \
+        --cov=plugins \
         --cov-report=xml \
         --cov-report=html \
         --cov-report=term \
@@ -243,7 +246,7 @@ test:mypy:
   script:
     - uv pip install --system --group dev . mypy 2>&1 | tail -20
     - echo "Running mypy type checking..."
-    - mypy mcpgateway/ --config-file pyproject.toml --junit-xml mypy-report.xml || true
+    - mypy mcpgateway/ plugins/ --config-file pyproject.toml --junit-xml mypy-report.xml || true
   artifacts:
     paths:
       - mypy.txt
@@ -385,7 +388,7 @@ security:semgrep:
         --config=semgrep.yml \
         --json \
         --output=semgrep-report.json \
-        mcpgateway/ || true
+        mcpgateway/ plugins/ || true
   artifacts:
     reports:
       sast: semgrep-report.json
