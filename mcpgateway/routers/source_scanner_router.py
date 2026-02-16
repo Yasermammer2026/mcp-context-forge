@@ -1,34 +1,33 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Location: ./mcpgateway/routers/source_scanner_router.py
 
-Copyright 2025
+Copyright 2026
 SPDX-License-Identifier: Apache-2.0
+Authors: Arnav
 
 FastAPI Router for Source Scanner Results API.
 """
+
+# Future
 from __future__ import annotations
 
-#import logging
-from typing import Any, Dict, List, Optional, Annotated
+# Standard
+from typing import Annotated, Any, Dict, List, Optional
 
+# Third-Party
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+# First-Party
 from mcpgateway.auth import get_current_user
 from mcpgateway.db import get_db
 from mcpgateway.services.logging_service import LoggingService
-
 from plugins.source_scanner.storage.repository import ScanRepository
+
 REPOSITORY_AVAILABLE = True
 
-
-# try:
-#     from plugins.source_scanner.storage.repository import ScanRepository
-#     REPOSITORY_AVAILABLE = True
-# except ImportError:
-#     REPOSITORY_AVAILABLE = False
-#     logging.getLogger(__name__).warning("ScanRepository not available")
 
 logger = LoggingService().get_logger(__name__)
 
@@ -39,10 +38,9 @@ source_scanner_router = APIRouter(
 )
 
 
-#from __future__ import annotations  # <-- postpones evaluation of annotations
-
 class FindingResponse(BaseModel):
     """Single finding response."""
+
     id: int
     scanner: str
     severity: str
@@ -58,9 +56,9 @@ class FindingResponse(BaseModel):
         from_attributes = True
 
 
-
 class ScanSummaryResponse(BaseModel):
     """Scan summary statistics."""
+
     error_count: int = 0
     warning_count: int = 0
     info_count: int = 0
@@ -68,6 +66,7 @@ class ScanSummaryResponse(BaseModel):
 
 class ScanResponse(BaseModel):
     """Scan record response."""
+
     id: int
     repo_url: str
     ref: Optional[str] = None
@@ -82,13 +81,10 @@ class ScanResponse(BaseModel):
         from_attributes = True
 
 
-
 class ScanWithFindingsResponse(ScanResponse):
     """Scan response with findings."""
 
     findings: Annotated[list[FindingResponse], Field(default_factory=list)]
-
-
 
 
 @source_scanner_router.get("/scans/{scan_id}", response_model=ScanWithFindingsResponse)
@@ -161,11 +157,7 @@ async def get_scan_findings(
     if not scan:
         raise HTTPException(status_code=404, detail=f"Scan {scan_id} not found")
 
-    findings = (
-        repository.get_findings_by_severity(scan_id, severity)
-        if severity
-        else repository.get_findings_for_scan(scan_id)
-    )
+    findings = repository.get_findings_by_severity(scan_id, severity) if severity else repository.get_findings_for_scan(scan_id)
 
     return [
         FindingResponse(
@@ -200,10 +192,7 @@ async def get_latest_scan(
 
     if not scan:
         logger.info(f"No scan found for repo={repo_url}, commit={commit_sha}")
-        raise HTTPException(
-            status_code=404,
-            detail=f"No scan found for commit {commit_sha} in {repo_url}"
-        )
+        raise HTTPException(status_code=404, detail=f"No scan found for commit {commit_sha} in {repo_url}")
 
     findings_response = [
         FindingResponse(

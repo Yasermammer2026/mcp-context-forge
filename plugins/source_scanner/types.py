@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Location: ./plugins/source_scanner/types.py
-Copyright 2025
+Copyright 2026
 SPDX-License-Identifier: Apache-2.0
+Authors: Xinyi, Ayo
 
 Data schemas for findings and scan results.
 """
@@ -10,9 +12,7 @@ Data schemas for findings and scan results.
 from __future__ import annotations
 
 # Standard
-from typing import Tuple, List, Optional, Literal, Annotated
-
-
+from typing import List, Literal, Optional
 
 # Third-Party
 from pydantic import BaseModel, Field
@@ -34,7 +34,7 @@ class Finding(BaseModel):
     """
 
     scanner: str
-    severity: Literal["ERROR","WARNING","INFO"]  # ERROR | WARNING | INFO
+    severity: Literal["ERROR", "WARNING", "INFO"]  # ERROR | WARNING | INFO
     rule_id: str
     message: str
     file_path: Optional[str] = None
@@ -56,6 +56,7 @@ class Finding(BaseModel):
             self.line,
             self.message,
         )
+
 
 class ScanSummary(BaseModel):
     """Summary statistics for scan results.
