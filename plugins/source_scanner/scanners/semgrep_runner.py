@@ -19,7 +19,6 @@ from typing import Any, Literal
 
 from plugins.source_scanner.types import Finding
 from plugins.source_scanner.utils.exec import run_command
-from plugins.source_scanner.repo_fetcher import fetch_repo
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +32,6 @@ class SemgrepRunner:
 
     async def run(self, repo_url: str, temp_folder: str) -> list[Finding]:
         try:
-            # Clone repository
-            await fetch_repo(repo_url, temp_folder, timeout_seconds=self.timeout)
-            
             # Build and run semgrep command
             command = self.build_command(temp_folder)
             #result = subprocess.run(command, capture_output=True, text=True, timeout=self.timeout)
