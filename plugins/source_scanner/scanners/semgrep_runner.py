@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Semgrep scanner runner for Source Scanner.
+
+Location: ./plugins/source_scanner/scanners/semgrep_runner.py
+Copyright 2026
+SPDX-License-Identifier: Apache-2.0
+Authors: Agnetha
+
+This module implements Semgrep CLI integration for static code analysis.
+Parses SARIF output into normalized Finding objects.
+"""
+
 import os
 import logging
 import shutil
@@ -6,8 +19,10 @@ from typing import Any, Literal
 
 from plugins.source_scanner.types import Finding
 from plugins.source_scanner.utils.exec import run_command
+from plugins.source_scanner.repo_fetcher import fetch_repo
 
 logger = logging.getLogger(__name__)
+
 class SemgrepRunner:
     def __init__(self, config: dict[str, Any]):
         self.config = config
@@ -19,7 +34,7 @@ class SemgrepRunner:
     async def run(self, repo_url: str, temp_folder: str) -> list[Finding]:
         try:
             # Clone repository
-            await _clone_repo(repo_url, temp_folder, timeout_seconds=self.timeout)
+            await fetch_repo(repo_url, temp_folder, timeout_seconds=self.timeout)
             
             # Build and run semgrep command
             command = self.build_command(temp_folder)
@@ -108,12 +123,6 @@ class SemgrepRunner:
             shutil.rmtree(temp_folder, ignore_errors=False)
         except Exception as e:
             logger.warning(f"Warning: Failed to delete temp folder {temp_folder}: {e}")
-
-
-async def _clone_repo(repo_url: str, temp_folder: str, timeout_seconds: int = 300) -> None:
-    """Clone repository to temporary folder."""
-    git_command = ["git", "clone", "--depth", "1", "--", repo_url, temp_folder]
-    await run_command(git_command, timeout_seconds=timeout_seconds, cwd=None, env=os.environ.copy())
 
 
 Severity = Literal["ERROR", "WARNING", "INFO"]
