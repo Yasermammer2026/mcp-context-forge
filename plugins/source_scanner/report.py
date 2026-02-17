@@ -7,39 +7,54 @@ Author: Yanko
 
 Generates a report from the scanner json files
 """
+#from plugins.source_scanner.parsing.normalizer import Normalizer
 import json
 from typing import Any
 
 
 class report:
-    def __init__(self, report_path: str, filename: str):
+    def __init__(self, report_path: str, filename: str, scanner: str):
         self.report_path = report_path
+        self.filename = filename
+        self.scanner = scanner
         self.data: list[Any] = []
+        self.load()
 
     def load(self):
         with open(self.report_path, 'r') as file:
             self.data = json.load(file)
-
-    def get_data(self) -> list[Any]:
-        if self.data == []:
-            self.load()
         return self.data
     
-    def Summary(self) -> dict[str, int]:
-        data = self.get_data()
+    
+    def summary(self) -> dict[str, int]:
         levels = {"HIGH" : 0, "MEDIUM" : 0, "LOW" : 0}
 
-        for file in data:
+        for file in self.data:
             levels[file["severity"]] += 1
 
 
         summary = {
-            "total_files" : len(data),
+            "total_files" : len(self.data),
             "total_issues" : (levels["HIGH"] + levels["MEDIUM"] + levels["LOW"]),
             "HIGH" : levels["HIGH"],
             "MEDIUM" : levels["MEDIUM"],
             "LOW" : levels["LOW"]
         }
         return summary
+    
+    def ordered(self) -> dict[str, dict[str, int]]:
+        ordered: dict[str, dict[str, int]] = { "HIGH" : {}, "MEDIUM" : {}, "LOW" : {} }
+
+        for file in self.data:
+            if file["issue"] not in ordered[file["severity"]]:
+                ordered[file["severity"]][file["issue"]] = 1
+            else:
+                ordered[file["severity"]][file["issue"]] += 1
+        return ordered
+    
+    #def visual(self) -> dict[str, str]:
+myrep = report("./plugins/source_scanner/bandit_standartized.json", "bandit.json", "bandit")
+print(myrep.summary())
+print(myrep.ordered())
         
 
