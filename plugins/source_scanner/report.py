@@ -52,9 +52,6 @@ class report:
                 ordered[file["severity"]][file["issue"]] += 1
         return ordered
     
-    #def visual(self) -> dict[str, str]:
-myrep = report("./plugins/source_scanner/bandit_standartized.json", "bandit.json", "bandit")
-print(myrep.summary())
-print(myrep.ordered())
+    
         
 
