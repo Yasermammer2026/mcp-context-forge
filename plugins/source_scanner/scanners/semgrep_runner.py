@@ -19,8 +19,9 @@ from typing import Any, Literal
 
 # First-Party
 from plugins.source_scanner.errors import ScannerError, ScannerTimeoutError
-from plugins.source_scanner.types import Finding
+from plugins.source_scanner.models import Finding
 from plugins.source_scanner.utils.exec import run_command
+from plugins.source_scanner.config import SemgrepConfig
 
 logger = logging.getLogger(__name__)
 
@@ -28,26 +29,26 @@ logger = logging.getLogger(__name__)
 class SemgrepRunner:
     """Runs Semgrep scans and parses results into Finding objects."""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: SemgrepConfig):
         """Initialize the Semgrep runner from configuration values."""
         self.config = config
-        self.enabled = config.get("enabled", True)
-        self.rulesets = config.get("rulesets", ["p/security-audit"])
-        self.extra_args = config.get("extra_args", [])
-        self.timeout = config.get("timeout", 300)
+        self.enabled = config.enabled  
+        self.rulesets = config.rulesets  
+        self.extra_args = config.extra_args 
+        self.timeout = config.timeout_seconds
 
-    async def run(self, repo_url: str, timeout_s: int) -> list[Finding]:
+    async def run(self, repo_path: str, timeout_s: int) -> list[Finding]:
         """Run Semgrep against the checked-out repository.
 
         Args:
-            repo_url: Repository URL being scanned.
-            temp_folder: Path to the temporary workspace.
+            repo_path: Path to the repository being scanned.
+            timeout_s: Timeout in seconds for the scan.
 
         Returns:
             List of findings produced by Semgrep.
         """
         # Build and run semgrep command
-        command = self.build_command(repo_url)
+        command = self.build_command(repo_path)
         # result = subprocess.run(command, capture_output=True, text=True, timeout=self.timeout)
         result = await run_command(command, cwd=None, env=os.environ.copy(), timeout_seconds=timeout_s)
         # Check for timeout
