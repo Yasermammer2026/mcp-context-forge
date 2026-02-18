@@ -11,7 +11,7 @@ Handles merging findings from multiple scanners and deduplication.
 """
 
 from typing import List
-from ..models import Finding
+from ..types import Finding
 
 
 class FindingNormalizer:

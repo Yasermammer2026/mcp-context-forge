@@ -19,7 +19,7 @@ from typing import Any, Literal
 
 # First-Party
 from plugins.source_scanner.errors import ScannerError, ScannerTimeoutError
-from plugins.source_scanner.models import Finding
+from plugins.source_scanner.types import Finding
 from plugins.source_scanner.utils.exec import run_command
 from plugins.source_scanner.config import SemgrepConfig
 
