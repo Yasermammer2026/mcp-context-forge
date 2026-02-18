@@ -3,7 +3,7 @@
 """Bandit scanner runner for Source Scanner.
 
 Location: ./plugins/source_scanner/scanners/bandit_scanner.py
-Copyright 2025
+Copyright 2026
 SPDX-License-Identifier: Apache-2.0
 Authors: "Fionn Gavin"
 
@@ -20,12 +20,13 @@ from typing import Any, Literal
 # First-Party
 from plugins.source_scanner.utils.exec import run_command
 from plugins.source_scanner.types import Finding
+from plugins.source_scanner.config import BanditConfig
 
 logger = logging.getLogger(__name__)
 
 
 class BanditRunner:
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: BanditConfig):
         self.config = config
         self.enabled = config.get("enabled", True)
         self.extra_args = config.get("extra_args", [])
