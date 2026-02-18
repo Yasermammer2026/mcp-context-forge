@@ -10,7 +10,7 @@ Generates a report from the scanner json findings
 # from plugins.source_scanner.parsing.normalizer import Normalizer
 
 # Standard
-from typing import List
+from typing import List, Dict
 
 # First-Party
 from plugins.source_scanner.types import Finding
@@ -28,19 +28,19 @@ class Report:
 
         self.findings = findings
 
-    def summary(self) -> dict[str, int]:
+    def summary(self) -> Dict[str, int]:
         """gives a summary of the findings
 
         Returns:
-            A dictionary with a summary of the findings"""
+            A Dictionary with a summary of the findings"""
 
         levels = {"ERROR": 0, "WARNING": 0, "INFO": 0}
 
         for finding in self.findings:
-            levels[finding["severity"]] += 1
+            levels[finding.severity] += 1
 
         summary = {
-            "total_findings": len(self.findings),
+            #"total_findings": len(self.findings),
             "total_issues": (levels["ERROR"] + levels["WARNING"] + levels["INFO"]),
             "ERROR": levels["ERROR"],
             "WARNING": levels["WARNING"],
@@ -48,17 +48,17 @@ class Report:
         }
         return summary
 
-    def ordered(self) -> dict[str, dict[str, int]]:
+    def ordered(self) -> Dict[str, Dict[str, int]]:
         """gives an rdered list of the findings
 
         Returns:
-            A dictionary with 3 dictionaries named after the severity levels, each containing issues of that severity and their counts"""
+            A Dictionary with 3 Dictionaries named after the severity levels, each containing issues of that severity and their counts"""
 
-        ordered: dict[str, dict[str, int]] = {"ERROR": {}, "WARNING": {}, "INFO": {}}
+        ordered: Dict[str, Dict[str, int]] = {"ERROR": {}, "WARNING": {}, "INFO": {}}
 
         for finding in self.findings:
-            if finding["issue"] not in ordered[finding["severity"]]:
-                ordered[finding["severity"]][finding["issue"]] = 1
+            if finding.rule_id not in ordered[finding.severity]:
+                ordered[finding.severity][finding.rule_id] = 1
             else:
-                ordered[finding["severity"]][finding["issue"]] += 1
+                ordered[finding.severity][finding.rule_id] += 1
         return ordered
