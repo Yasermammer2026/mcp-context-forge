@@ -7,13 +7,14 @@ Author: Yanko
 
 Generates a report from the scanner json findings
 """
+
 # from plugins.source_scanner.parsing.normalizer import Normalizer
 
 # Standard
-from typing import List, Dict
+from typing import Dict, List
 
-# First-Party
-from plugins.source_scanner.types import Finding
+# Local
+from .models import Finding
 
 
 class Report:
@@ -40,7 +41,7 @@ class Report:
             levels[finding.severity] += 1
 
         summary = {
-            #"total_findings": len(self.findings),
+            # "total_findings": len(self.findings),
             "total_issues": (levels["ERROR"] + levels["WARNING"] + levels["INFO"]),
             "ERROR": levels["ERROR"],
             "WARNING": levels["WARNING"],
