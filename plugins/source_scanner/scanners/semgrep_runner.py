@@ -21,7 +21,6 @@ from typing import Any, Literal
 from plugins.source_scanner.errors import ScannerError, ScannerTimeoutError
 from plugins.source_scanner.types import Finding
 from plugins.source_scanner.utils.exec import run_command
-from plugins.source_scanner.config import SemgrepConfig
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +28,13 @@ logger = logging.getLogger(__name__)
 class SemgrepRunner:
     """Runs Semgrep scans and parses results into Finding objects."""
 
-    def __init__(self, config: SemgrepConfig):
+    def __init__(self, config: dict[str, Any]):
         """Initialize the Semgrep runner from configuration values."""
         self.config = config
-        self.enabled = config.enabled  
-        self.rulesets = config.rulesets  
-        self.extra_args = config.extra_args 
-        self.timeout = config.timeout_seconds
+        self.enabled = config.get("enabled", True)
+        self.rulesets = config.get("rulesets", ["p/security-audit"])
+        self.extra_args = config.get("extra_args", [])
+        self.timeout = config.get("timeout", 300)
 
     async def run(self, repo_path: str, timeout_s: int) -> list[Finding]:
         """Run Semgrep against the checked-out repository.
