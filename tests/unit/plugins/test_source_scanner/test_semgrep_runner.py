@@ -1,5 +1,10 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Unit tests for Semgrep runner integration.
+"""Location: ./tests/unit/plugins/test_source_scanner/test_semgrep_runner.py
+Copyright 2026
+SPDX-License-Identifier: Apache-2.0 
+Authors: Yasser
+Unit tests for Semgrep runner integration.
 
 Test coverage includes:
 - Initialization with various configurations
@@ -10,11 +15,15 @@ Test coverage includes:
 - Error handling
 """
 
-import pytest
+# Standard
 from tempfile import mkdtemp
 from typing import Any
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
+# Third-Party
+import pytest
+
+# First-Party
 from plugins.source_scanner.scanners.semgrep_runner import SemgrepRunner
 from plugins.source_scanner.types import Finding
 from plugins.source_scanner.utils.exec import ExecResult
@@ -26,7 +35,7 @@ class TestSemgrepRunnerInitialization:
         """Test initialization uses defaults when config is minimal."""
         config = {"enabled": True}
         runner = SemgrepRunner(config)
-        
+
         assert runner.enabled is True, "enabled should be True from config"
         assert runner.rulesets == ["p/security-audit"], f"Expected default ruleset ['p/security-audit'], got {runner.rulesets}"
         assert runner.extra_args == [], f"Expected empty extra_args, got {runner.extra_args}"
@@ -41,7 +50,7 @@ class TestSemgrepRunnerInitialization:
             "timeout": 600,
         }
         runner = SemgrepRunner(config)
-        
+
         assert runner.enabled is True, "enabled should match config"
         assert len(runner.rulesets) == 3, f"Expected 3 rulesets, got {len(runner.rulesets)}"
         assert "p/python" in runner.rulesets, "p/python should be in rulesets"
@@ -52,7 +61,7 @@ class TestSemgrepRunnerInitialization:
         """Test initialization when scanner is disabled."""
         config = {"enabled": False}
         runner = SemgrepRunner(config)
-        
+
         assert runner.enabled is False, "enabled should be False"
 
 
@@ -63,9 +72,9 @@ class TestCommandBuilding:
         """Test basic command includes all required parts."""
         config = {"rulesets": ["p/security-audit"]}
         runner = SemgrepRunner(config)
-        
+
         command = runner.build_command("/tmp/repo")
-        
+
         assert "semgrep" in command, f"Command should start with 'semgrep': {command}"
         assert "scan" in command, f"Command should include 'scan': {command}"
         assert "--config" in command, f"Command should include '--config' flag: {command}"
@@ -77,9 +86,9 @@ class TestCommandBuilding:
         """Test command building with multiple rulesets."""
         config = {"rulesets": ["p/security-audit", "p/python", "p/owasp-top-ten"]}
         runner = SemgrepRunner(config)
-        
+
         command = runner.build_command("/tmp/repo")
-        
+
         config_count = command.count("--config")
         assert config_count == 3, f"Expected 3 '--config' flags, got {config_count}"
         assert "p/security-audit" in command, "p/security-audit not in command"
@@ -90,9 +99,9 @@ class TestCommandBuilding:
         """Test command building includes extra arguments."""
         config = {"extra_args": ["--verbose", "--timeout=30", "--strict"]}
         runner = SemgrepRunner(config)
-        
+
         command = runner.build_command("/tmp/repo")
-        
+
         assert "--verbose" in command, f"--verbose not in command: {command}"
         assert "--timeout=30" in command, f"--timeout=30 not in command: {command}"
         assert "--strict" in command, f"--strict not in command: {command}"
@@ -101,9 +110,9 @@ class TestCommandBuilding:
         """Test command building with empty rulesets list."""
         config: dict[str, Any] = {"rulesets": []}
         runner = SemgrepRunner(config)
-        
+
         command = runner.build_command("/tmp/repo")
-        
+
         assert "semgrep" in command, "Command should still be valid"
         assert "--json" in command, "JSON output should still be included"
 
@@ -115,10 +124,10 @@ class TestSARIFParsing:
         """Test parsing empty results returns empty list."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {"results": []}
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert isinstance(findings, list), f"Expected list, got {type(findings)}"
         assert len(findings) == 0, f"Expected empty list, got {len(findings)} findings"
 
@@ -126,7 +135,7 @@ class TestSARIFParsing:
         """Test parsing single finding from output."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif = {
             "results": [
                 {
@@ -135,16 +144,12 @@ class TestSARIFParsing:
                     "message": "SQL injection",
                     "path": "app.py",
                     "start": {"line": 42, "col": 10},
-                    "extra": {
-                        "message": "Parameterized query needed",
-                        "lines": "query = f'SELECT * FROM users WHERE id={uid}'",
-                        "doc_url": "https://semgrep.dev/r/sql-injection"
-                    }
+                    "extra": {"message": "Parameterized query needed", "lines": "query = f'SELECT * FROM users WHERE id={uid}'", "doc_url": "https://semgrep.dev/r/sql-injection"},
                 }
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert len(findings) == 1, f"Expected 1 finding, got {len(findings)}"
         finding = findings[0]
         assert finding.scanner == "semgrep", f"scanner should be 'semgrep', got {finding.scanner}"
@@ -158,7 +163,7 @@ class TestSARIFParsing:
         """Test parsing multiple findings."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif = {
             "results": [
                 {
@@ -185,7 +190,7 @@ class TestSARIFParsing:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert len(findings) == 3, f"Expected 3 findings, got {len(findings)}"
         assert findings[0].rule_id == "rule.one", f"First finding rule_id mismatch"
         assert findings[1].rule_id == "rule.two", f"Second finding rule_id mismatch"
@@ -195,17 +200,17 @@ class TestSARIFParsing:
         """Test handling error field in output."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif = {"error": "Semgrep execution failed"}
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert len(findings) == 0, f"Expected empty list on error, got {len(findings)}"
 
     def test_parse_missing_optional_fields(self) -> None:
         """Test handling missing optional fields gracefully."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif = {
             "results": [
                 {
@@ -218,7 +223,7 @@ class TestSARIFParsing:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert len(findings) == 1, "Should parse minimal finding"
         finding = findings[0]
         assert finding.column is None, f"column should be None, got {finding.column}"
@@ -229,7 +234,7 @@ class TestSARIFParsing:
         """Test missing start.line field defaults to None."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -242,7 +247,7 @@ class TestSARIFParsing:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert findings[0].line is None, f"line should be None when missing, got {findings[0].line}"
 
 
@@ -253,7 +258,7 @@ class TestSeverityMapping:
         """Test ERROR severity maps to ERROR."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -266,14 +271,14 @@ class TestSeverityMapping:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert findings[0].severity == "ERROR", f"ERROR should map to ERROR, got {findings[0].severity}"
 
     def test_severity_warning_stays_warning(self) -> None:
         """Test WARNING severity maps to WARNING."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -286,14 +291,14 @@ class TestSeverityMapping:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert findings[0].severity == "WARNING", f"WARNING should map to WARNING, got {findings[0].severity}"
 
     def test_severity_info_stays_info(self) -> None:
         """Test INFO severity maps to INFO."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -306,14 +311,14 @@ class TestSeverityMapping:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert findings[0].severity == "INFO", f"INFO should map to INFO, got {findings[0].severity}"
 
     def test_severity_high_maps_to_error(self) -> None:
         """Test HIGH severity maps to ERROR."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -326,14 +331,14 @@ class TestSeverityMapping:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert findings[0].severity == "ERROR", f"HIGH should map to ERROR, got {findings[0].severity}"
 
     def test_severity_medium_maps_to_warning(self) -> None:
         """Test MEDIUM severity maps to WARNING."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -346,14 +351,14 @@ class TestSeverityMapping:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert findings[0].severity == "WARNING", f"MEDIUM should map to WARNING, got {findings[0].severity}"
 
     def test_severity_low_maps_to_info(self) -> None:
         """Test LOW severity maps to INFO."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -366,14 +371,14 @@ class TestSeverityMapping:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert findings[0].severity == "INFO", f"LOW should map to INFO, got {findings[0].severity}"
 
     def test_severity_unknown_defaults_to_info(self) -> None:
         """Test unknown severity defaults to INFO."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -386,14 +391,14 @@ class TestSeverityMapping:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert findings[0].severity == "INFO", f"Unknown severity should default to INFO, got {findings[0].severity}"
 
     def test_severity_case_insensitive(self) -> None:
         """Test severity mapping is case-insensitive."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -406,7 +411,7 @@ class TestSeverityMapping:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert findings[0].severity == "ERROR", f"Lowercase 'error' should map to ERROR, got {findings[0].severity}"
 
 
@@ -417,7 +422,7 @@ class TestFindingObject:
         """Test Finding object has correct scanner field."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -430,14 +435,14 @@ class TestFindingObject:
             ]
         }
         findings = runner.parse_sarif_output(sarif)
-        
+
         assert findings[0].scanner == "semgrep", f"scanner should be 'semgrep', got {findings[0].scanner}"
 
     def test_finding_object_all_attributes(self) -> None:
         """Test Finding object has all required attributes."""
         config: dict[str, Any] = {}
         runner = SemgrepRunner(config)
-        
+
         sarif: dict[str, Any] = {
             "results": [
                 {
@@ -446,17 +451,13 @@ class TestFindingObject:
                     "message": "Test message",
                     "path": "test/file.py",
                     "start": {"line": 99, "col": 42},
-                    "extra": {
-                        "message": "Detailed message",
-                        "lines": "code = vulnerable()",
-                        "doc_url": "https://docs.example.com/rule"
-                    }
+                    "extra": {"message": "Detailed message", "lines": "code = vulnerable()", "doc_url": "https://docs.example.com/rule"},
                 }
             ]
         }
         findings = runner.parse_sarif_output(sarif)
         finding = findings[0]
-        
+
         assert hasattr(finding, "scanner"), "Finding should have 'scanner' attribute"
         assert hasattr(finding, "rule_id"), "Finding should have 'rule_id' attribute"
         assert hasattr(finding, "severity"), "Finding should have 'severity' attribute"
@@ -477,14 +478,14 @@ class TestIntegration:
         """Test run method returns a list."""
         config: dict[str, Any] = {"rulesets": ["p/security-audit"]}
         runner = SemgrepRunner(config)
-        
+
         with patch("plugins.source_scanner.scanners.semgrep_runner.run_command", new_callable=AsyncMock) as mock_run_command:
             mock_run_command.side_effect = [
                 ExecResult(returncode=0, stdout="", stderr="", timed_out=False),
                 ExecResult(returncode=0, stdout='{"results": []}', stderr="", timed_out=False),
             ]
             findings = await runner.run("https://github.com/test/repo.git", mkdtemp())
-            
+
             assert isinstance(findings, list), f"run() should return list, got {type(findings)}"
 
     @pytest.mark.asyncio
@@ -492,14 +493,14 @@ class TestIntegration:
         """Test run method returns list of Finding objects."""
         config: dict[str, Any] = {"rulesets": ["p/security-audit"]}
         runner = SemgrepRunner(config)
-        
+
         mock_output = '{"results": [{"check_id": "rule1", "severity": "INFO", "message": "Test", "path": "file.py", "start": {"line": 1}}]}'
-        
+
         with patch("plugins.source_scanner.scanners.semgrep_runner.run_command", new_callable=AsyncMock) as mock_run_command:
             mock_run_command.side_effect = [
                 ExecResult(returncode=0, stdout="", stderr="", timed_out=False),
                 ExecResult(returncode=0, stdout=mock_output, stderr="", timed_out=False),
             ]
             findings = await runner.run("https://github.com/test/repo.git", mkdtemp())
-            
+
             assert all(isinstance(f, Finding) for f in findings), "All items should be Finding objects"

@@ -97,6 +97,7 @@ class SourceScannerConfig(BaseModel):
     cache_ttl_hours: int = 168  # 1 week
 
     def model_post_init(self, __context: Any) -> None:
+        """Merge nested scanner configuration into top-level fields after validation."""
         # If user provides config.scanners.*, merge into top-level fields
         if self.scanners is not None:
             self.semgrep = self.scanners.semgrep
