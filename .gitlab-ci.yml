@@ -248,6 +248,16 @@ test:integration:source_scanner:
   image: python:3.12
   extends: .python_job
   before_script:
+    - python --version
+    - |
+      if command -v apt-get >/dev/null; then
+        apt-get update && apt-get install -y --no-install-recommends jq git
+      elif command -v apk >/dev/null; then
+        apk add --no-cache jq git
+      else
+        echo "No package manager found to install jq" && exit 1
+      fi
+    - pip install --upgrade pip setuptools wheel uv
     - uv pip install --system --group dev . 2>&1 | tail -20
   script:
     - echo "Running Source Scanner Integration Tests..."
@@ -279,6 +289,16 @@ test:integration:bandit:
   image: python:3.12
   extends: .python_job
   before_script:
+    - python --version
+    - |
+      if command -v apt-get >/dev/null; then
+        apt-get update && apt-get install -y --no-install-recommends jq git
+      elif command -v apk >/dev/null; then
+        apk add --no-cache jq git
+      else
+        echo "No package manager found to install jq" && exit 1
+      fi
+    - pip install --upgrade pip setuptools wheel uv
     - uv pip install --system --group dev . 2>&1 | tail -20
   script:
     - echo "Running Bandit Scanner Integration Tests..."
@@ -309,8 +329,16 @@ test:integration:semgrep:
   stage: test
   image: python:3.12
   extends: .python_job
-  before_script:
-    - uv pip install --system --group dev . 2>&1 | tail -20
+  before_script:    - python --version
+    - |
+      if command -v apt-get >/dev/null; then
+        apt-get update && apt-get install -y --no-install-recommends jq git
+      elif command -v apk >/dev/null; then
+        apk add --no-cache jq git
+      else
+        echo "No package manager found to install jq" && exit 1
+      fi
+    - pip install --upgrade pip setuptools wheel uv    - uv pip install --system --group dev . 2>&1 | tail -20
   script:
     - echo "Running Semgrep Scanner Integration Tests..."
     - |
@@ -340,8 +368,16 @@ test:integration:workflows:
   stage: test
   image: python:3.12
   extends: .python_job
-  before_script:
-    - uv pip install --system --group dev . 2>&1 | tail -20
+  before_script:    - python --version
+    - |
+      if command -v apt-get >/dev/null; then
+        apt-get update && apt-get install -y --no-install-recommends jq git
+      elif command -v apk >/dev/null; then
+        apk add --no-cache jq git
+      else
+        echo "No package manager found to install jq" && exit 1
+      fi
+    - pip install --upgrade pip setuptools wheel uv    - uv pip install --system --group dev . 2>&1 | tail -20
   script:
     - echo "Running Repository Scan Workflow Tests..."
     - |
