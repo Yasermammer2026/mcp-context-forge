@@ -54,13 +54,13 @@ cache:
     - python --version
     - |
       if command -v apt-get >/dev/null; then
-        apt-get update && apt-get install -y --no-install-recommends jq semgrep
+        apt-get update && apt-get install -y --no-install-recommends jq
       elif command -v apk >/dev/null; then
-        apk add --no-cache jq semgrep
+        apk add --no-cache jq
       else
-        echo "No package manager found to install jq/semgrep" && exit 1
+        echo "No package manager found to install jq" && exit 1
       fi
-    - pip install --upgrade pip setuptools wheel uv
+    - pip install --upgrade pip setuptools wheel uv semgrep
 
 # Define which branches/tags trigger pipelines
 workflow:
