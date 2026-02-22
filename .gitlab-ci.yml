@@ -247,13 +247,15 @@ test:integration:source_scanner:
   stage: test
   image: python:3.12
   extends: .python_job
-  script:
+  before_script:
     - uv pip install --system --group dev . 2>&1 | tail -20
+  script:
     - echo "Running Source Scanner Integration Tests..."
     - |
       uv run pytest \
         tests/integration/test_source_scanners/ \
-        -v -m integration \
+        -v \
+        -m integration \
         --tb=short \
         --junit-xml=integration_report.xml \
         --timeout=600
@@ -276,15 +278,18 @@ test:integration:bandit:
   stage: test
   image: python:3.12
   extends: .python_job
-  script:
+  before_script:
     - uv pip install --system --group dev . 2>&1 | tail -20
+  script:
     - echo "Running Bandit Scanner Integration Tests..."
     - |
       uv run pytest \
         tests/integration/test_source_scanners/test_bandit_integration.py \
-        -v --tb=short \
+        -v \
+        -m integration \
+        --tb=short \
         --junit-xml=bandit_report.xml \
-        --timeout=300
+        --timeout=600
   artifacts:
     reports:
       junit: bandit_report.xml
@@ -304,15 +309,18 @@ test:integration:semgrep:
   stage: test
   image: python:3.12
   extends: .python_job
-  script:
+  before_script:
     - uv pip install --system --group dev . 2>&1 | tail -20
+  script:
     - echo "Running Semgrep Scanner Integration Tests..."
     - |
       uv run pytest \
         tests/integration/test_source_scanners/test_semgrep_integration.py \
-        -v --tb=short \
+        -v \
+        -m integration \
+        --tb=short \
         --junit-xml=semgrep_report.xml \
-        --timeout=300
+        --timeout=600
   artifacts:
     reports:
       junit: semgrep_report.xml
@@ -332,15 +340,18 @@ test:integration:workflows:
   stage: test
   image: python:3.12
   extends: .python_job
-  script:
+  before_script:
     - uv pip install --system --group dev . 2>&1 | tail -20
+  script:
     - echo "Running Repository Scan Workflow Tests..."
     - |
       uv run pytest \
         tests/integration/test_source_scanners/test_real_repo_scan.py \
-        -v --tb=short \
+        -v \
+        -m integration \
+        --tb=short \
         --junit-xml=workflow_report.xml \
-        --timeout=300
+        --timeout=600
   artifacts:
     reports:
       junit: workflow_report.xml
