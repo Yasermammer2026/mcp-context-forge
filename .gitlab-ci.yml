@@ -54,11 +54,11 @@ cache:
     - python --version
     - |
       if command -v apt-get >/dev/null; then
-        apt-get update && apt-get install -y --no-install-recommends jq
+        apt-get update && apt-get install -y --no-install-recommends jq semgrep
       elif command -v apk >/dev/null; then
-        apk add --no-cache jq
+        apk add --no-cache jq semgrep
       else
-        echo "No package manager found to install jq" && exit 1
+        echo "No package manager found to install jq/semgrep" && exit 1
       fi
     - pip install --upgrade pip setuptools wheel uv
 
@@ -299,10 +299,13 @@ test:integration:py312:
         -v \
         --tb=short \
         --timeout=600 \
-        --capture=no
+        --capture=no \
+        -o junit_family=xunit2 \
+        --junit-xml=junit-integration.xml
   artifacts:
     paths:
       - tests/integration/test_source_scanners/.pytest_cache/
+      - junit-integration.xml
     reports:
       junit: junit-integration.xml
     expire_in: 30 days
@@ -337,10 +340,13 @@ test:integration:webgoat:
         -v \
         --tb=short \
         --timeout=600 \
-        --capture=no
+        --capture=no \
+        -o junit_family=xunit2 \
+        --junit-xml=junit-integration-webgoat.xml
   artifacts:
     paths:
       - tests/integration/test_source_scanners/.pytest_cache/
+      - junit-integration-webgoat.xml
     reports:
       junit: junit-integration-webgoat.xml
     expire_in: 30 days
