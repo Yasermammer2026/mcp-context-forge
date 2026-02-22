@@ -272,6 +272,83 @@ test:doctest:
         -n 4
   allow_failure: true
 
+# Test: Integration tests (Python 3.12)
+test:integration:py312:
+  stage: test
+  image: python:3.12
+  extends: .python_job
+  timeout: 20 minutes
+  variables:
+    TEST_REPO_URL: "https://github.com/harishsg993010/damn-vulnerable-MCP-server.git"
+    TEST_REPO_REF: "main"
+    SCANNER_TIMEOUT: "300"
+    SCANNER_CLONE_TIMEOUT: "60"
+    SCANNER_MAX_SIZE_MB: "1000"
+    SCANNER_SEMGREP_ENABLED: "true"
+    SCANNER_BANDIT_ENABLED: "true"
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - python -c "import pytest; print('pytest OK')" || (echo "pytest missing"; exit 1)
+    - echo "Verifying integration test setup..."
+    - python tests/integration/test_source_scanners/verify_setup.py || true
+    - echo "Running integration tests (Python 3.12)..."
+    - |
+      uv run pytest \
+        tests/integration/test_source_scanners/ \
+        -m integration \
+        -v \
+        --tb=short \
+        --timeout=600 \
+        --capture=no
+  artifacts:
+    paths:
+      - tests/integration/test_source_scanners/.pytest_cache/
+    reports:
+      junit: junit-integration.xml
+    expire_in: 30 days
+  allow_failure: true
+  only:
+    - main
+    - merge_requests
+    - /^feat\/.*integration.*$/
+
+# Test: Integration tests - Real repository scan (WebGoat)
+test:integration:webgoat:
+  stage: test
+  image: python:3.12
+  extends: .python_job
+  timeout: 25 minutes
+  variables:
+    TEST_REPO_URL: "https://github.com/WebGoat/WebGoat.git"
+    TEST_REPO_REF: "main"
+    SCANNER_TIMEOUT: "300"
+    SCANNER_CLONE_TIMEOUT: "60"
+    SCANNER_MAX_SIZE_MB: "1000"
+    SCANNER_SEMGREP_ENABLED: "true"
+    SCANNER_BANDIT_ENABLED: "true"
+  script:
+    - uv pip install --system --group dev . 2>&1 | tail -20
+    - echo "Running integration tests on WebGoat repository..."
+    - |
+      uv run pytest \
+        tests/integration/test_source_scanners/test_real_repo_scan.py \
+        -m integration \
+        -m webgoat \
+        -v \
+        --tb=short \
+        --timeout=600 \
+        --capture=no
+  artifacts:
+    paths:
+      - tests/integration/test_source_scanners/.pytest_cache/
+    reports:
+      junit: junit-integration-webgoat.xml
+    expire_in: 30 days
+  allow_failure: true
+  only:
+    - main
+    - /^feat\/.*integration.*$/
+
 # ═══════════════════════════════════════════════════════════════
 # BUILD STAGE (Docker Images)
 # ═══════════════════════════════════════════════════════════════
