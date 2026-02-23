@@ -17,6 +17,8 @@ from typing import List, Literal, Optional
 # Third-Party
 from pydantic import BaseModel, Field
 
+Severity = Literal["ERROR", "WARNING", "INFO"]
+
 
 class Finding(BaseModel):
     """Unified finding schema from any scanner.
@@ -33,7 +35,7 @@ class Finding(BaseModel):
         help_url: Link to rule documentation.
     """
 
-    scanner: str
+    scanner: Literal["semgrep", "bandit"]
     severity: Literal["ERROR", "WARNING", "INFO"]  # ERROR | WARNING | INFO
     rule_id: str
     message: str
@@ -111,4 +113,3 @@ class PolicyDecision(BaseModel):
 
     blocked: bool
     reason: Optional[str] = None
-    scan_duration_seconds: Optional[float] = None
