@@ -16,7 +16,7 @@ import uuid
 class server_tier:
     """A class that represents a server and assings trust scores to it"""
 
-    def __init__(self, name: str = "", version: str = "", source_type: str = "", checked: datetime.datetime = None, path: str = ""):  # type: ignore
+    def __init__(self, name: str = "", version: str = "", source_type: str = "", checked: datetime.datetime = None, path: str = "", errors : list[int] = [-1, -1, -1]):  # type: ignore
         """Initialize class with the wanted inputs"""
         self.id = uuid.uuid4()
         self.name = name
@@ -26,7 +26,9 @@ class server_tier:
         self.last_updated = datetime.datetime.now()
         self.score = self.trust_score()
         self.trust_tier = self.assign_tier()
+        self.errors = errors
         self.path = path
+        self.sbom = False   # will be updated based on actual SBOM
 
     def trust_tiers(self, tier: str) -> dict[str, any]:  # type: ignore
         """function that returns the tier needed"""
@@ -49,22 +51,12 @@ class server_tier:
     # a function that calculates a trust score
     # input:
     #
-    def trust_score(self, errors: list[int] = [-1, -1, -1]) -> int:
+    def trust_score(self) -> int:
         """calculates trust score and returns it"""
-        if errors[0] == errors[1] == errors[2] == -1:
-            print("bad")
+        if self.errors[0] == self.errors[1] == self.errors[2] == -1:
             return -1
         else:
-            return 100 - (errors[0] * 50) - (errors[1] * 20) - (errors[2] * 5) - ((datetime.datetime.now() - self.last_updated).days * 1)
-
-    # Scanning and returning the errors in a list of critical
-    def scanning(self) -> list[int]:
-        """calls the scanner and returns the problems"""
-        if self.path == "":
-            return [-1, -1, -1]
-        else:
-            #   #TODO add scanner that returns the 3 error types
-            return [0, 0, 0]
+            return 100 - (self.errors[0] * 50) - (self.errors[1] * 20) - (self.errors[2] * 5) - ((datetime.datetime.now() - self.last_updated).days * 1)
 
     def assign_tier(self):
         """assigns a tier based on score and other requirements"""
