@@ -1,108 +1,65 @@
-# get code scanned and get num of low, medium and high errors
-
-import datetime
+from plugins.mcp_tiers.server_tier import server_tier
 import uuid
 
-
-
-
 class catalog():
+    def __init__(self, servers : list[server_tier] = [], approved : list[bool] = [True, True, True, False]):
+        self.servers = servers 
+        self.approved = {
+            "verified" : approved[0],
+            "standard" : approved[1],
+            "community" : approved[2],
+            "untrusted" : approved[3]
+        }
+    
+    
+    def display(self):
 
-  
-  def __init__(self, name : str = "", version : str = "", source_type : str = "", checked : datetime.datetime | None = None):
-    self.id = uuid.uuid4()
-    self.name = name 
-    self.version = version
-    self.source_type = source_type
-    self.last_checked = checked
-    self.last_updated = datetime.datetime.now()
-    self.score = self.trust_score()
-    self.trust_tier = self.assign_tier()
-  
-  def trust_tiers(self, tier : str = "") -> dict[str, int | str | bool | float]:
+      self.sort_servers()
 
-    tiers = {
-      "verified": {
-        "min_score": 90,
-        "badge_color": "#22c55e",    # green
-        "badge_icon": "shield-check",
-        "requires_manual_review": True,
-        "verification_expiry_days": 90
-      },
-        
-      "standard": {
-        "min_score": 70,
-        "badge_color": "#3b82f6",    # blue
-        "badge_icon": "shield"
-      },
-        
-      "community": {
-        "min_score": 50,
-        "badge_color": "#eab308",    # yellow
-        "badge_icon": "shield-question"
-      },
+      for server in self.servers:
+        print(server.score)
+        print(self.settings("minimum_trust_score"))
+        if server.score < self.settings("minimum_trust_score"): # type: ignore
+          continue
+        print(f"Name: {server.name}")
+        print(f"Version: {server.version}")
+        print(f"Source Type: {server.source_type}")
+        if self.settings("show_trust_score"):
+          print(f"Trust Score: {server.score}")
+        if self.settings("show_vulnerability_summary"):
+          print(f"Vulnerability Summary: {server.scanning()}")
+        if self.settings("show_last_assessed"):
+          print(f"Last Assessed: {server.last_checked}")
+        if self.settings("show_sbom_indicator"):
+          print(f"SBOM Indicator: {'Yes' if server.path else 'No'}")
+        print("\n")
+      
+          
+    def add_server(self, server : server_tier):
+      self.servers.append(server)
 
-      "untrusted": {
-        "min_score": float('-inf'),   # added just in case it is being checked it will always qualify it in untrusted
-        "badge_color": "#ef4444",   # red
-        "badge_icon": "shield-x",
-        "requires_approval": True,
-        "warning_message": "This server has not been security verified"
+    
+    def remove_server(self, server_id : uuid.UUID):
+      self.servers = [s for s in self.servers if s.id != server_id] #Implement a better way to remove?
+
+
+    def settings(self, setting : str):
+      settings = {  
+        "show_trust_score" : True,
+        "show_vulnerability_summary" : True,
+        "show_last_assessed" : True,
+        "show_sbom_indicator" : True,
+        "default_sort" : "trust_score",
+        "minimum_trust_score" : 0
       }
-    }
-    return tiers[tier] # type: ignore
-  
-  # Catalog display settings
-  def display(self,export : bool = False):
 
-    settings = {  
-      "show_trust_score" : True,
-      "show_vulnerability_summary" : True,
-      "show_last_assessed" : True,
-      "show_sbom_indicator" : True,
-      "default_sort" : "trust_score_desc"
-    }
+      return settings[setting] # type: ignore
 
-    for setting in settings:
-        print(setting)
-
-    if export:
-      #TODO: implement export functionality
-      export() # type: ignore
-    else:
-      pass
-    
-    
-  #TODO Export settings
-  def export(self):
-    formats = ["csv", "json", "pdf"] # type: ignore
-    include_security_metadata = True # type: ignore
-
-  
-  # a function that calculates a trust score
-  # input:
-  #   
-  def trust_score(self, errors : list[int] = [-1, -1, -1]) -> int:
-    if errors[0] == errors[1] == errors[2] == -1:
-      print("bad")
-      return -1
-    else:
-      return 100 - (errors[0] * 50) - (errors[1] * 20) - (errors[2] * 5) - ((datetime.datetime.now() - self.last_updated).days * 1)
-
-  # Scanning and returning the errors in a list of critical
-  def scanning(self) -> list[int]:
-    # if file == None:
-    #   return [-1,-1,-1]
-    # else:
-    #   #TODO add scanner that returns the 3 error types
-      return[0,0,0]
-    
-  def assign_tier(self):
-    if self.score >= self.trust_tiers("verified")["min_score"] and (datetime.datetime.now() - self.last_checked).days <= 90 and self.last_checked != None: # type: ignore
-      return "verified"
-    elif self.score >= self.trust_tiers("standard")["min_score"]: # type: ignore
-      return "standard"
-    elif self.score >= self.trust_tiers("community")["min_score"]: # type: ignore
-      return "community"
-    else:
-      return "untrusted"
+    def sort_servers(self, by : str = "trust_score"):
+      if by == "trust_score":
+        self.servers.sort(key=lambda s: s.score, reverse=True)
+      elif by == "last_assessed":
+        self.servers.sort(key=lambda s: s.last_checked, reverse=True)
+      elif by == "vulnerability_count":
+        self.servers.sort(key=lambda s: sum(s.scanning()), reverse=True)
+      # Add more sorting options if needed
