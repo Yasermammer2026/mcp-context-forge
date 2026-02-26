@@ -12,7 +12,7 @@ Configuration models for Source Scanner Plugin.
 from __future__ import annotations
 
 # Standard
-from typing import Any, List, Literal, Optional
+from typing import List, Literal, Optional
 
 # Third-Party
 from pydantic import BaseModel, Field
@@ -37,7 +37,6 @@ class SemgrepConfig(BaseModel):
         ]
     )
     extra_args: List[str] = Field(default_factory=list)
-    timeout_seconds: int = 600  # Default scan timeout of 10 minutes
 
 
 class BanditConfig(BaseModel):
@@ -83,7 +82,6 @@ class SourceScannerConfig(BaseModel):
         cache_ttl_hours: Cache time-to-live in hours.
     """
 
-    scanners: Optional[ScannersConfig] = None
     semgrep: SemgrepConfig = Field(default_factory=SemgrepConfig)
     bandit: BanditConfig = Field(default_factory=BanditConfig)
 
@@ -95,9 +93,3 @@ class SourceScannerConfig(BaseModel):
     github_token_env: str = "GITHUB_TOKEN"
     cache_by_commit: bool = True
     cache_ttl_hours: int = 168  # 1 week
-
-    def model_post_init(self, __context: Any) -> None:
-        # If user provides config.scanners.*, merge into top-level fields
-        if self.scanners is not None:
-            self.semgrep = self.scanners.semgrep
-            self.bandit = self.scanners.bandit

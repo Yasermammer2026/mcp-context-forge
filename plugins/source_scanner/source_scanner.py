@@ -3,7 +3,7 @@
 """Location: ./plugins/source_scanner/source_scanner.py
 Copyright 2026
 SPDX-License-Identifier: Apache-2.0
-Authors: MCP Gateway Team
+Authors: Xinyi, Ayo
 
 Source Scanner Plugin.
 Performs static analysis on MCP server source code using Semgrep and Bandit
@@ -15,34 +15,29 @@ from __future__ import annotations
 
 # Standard
 import logging
+import os
 from typing import Optional
 
 # First-Party
 from mcpgateway.plugins.framework import (
-    CatalogPreDeployPayload,
-    CatalogPreDeployResult,
     Plugin,
     PluginConfig,
-    PluginContext,
-    ServerPreRegisterPayload,
-    ServerPreRegisterResult,
+    # PluginContext,
 )
 
 # Local
 from .config import SourceScannerConfig
 from .errors import SourceScannerError
+from .language_detector import LanguageDetector
+from .models import Finding, ScanResult, ScanSummary
+from .parsing.normalizer import FindingNormalizer
 from .policy import PolicyChecker
-from .types import Finding, ScanResult, ScanSummary
 
-# from pydantic import BaseModel, Field
+# Components
+from .repo_fetcher import RepoFetcher
+from .scanners.bandit_runner import BanditRunner
+from .scanners.semgrep_runner import SemgrepRunner
 
-
-# Components (to be imported when implemented)
-# from .repo_fetcher import RepoFetcher
-# from .language_detector import LanguageDetector
-# from .scanners.semgrep_runner import SemgrepRunner
-# from .scanners.bandit_runner import BanditRunner
-# from .parsing.normalizer import ParserNormalizer
 # from .storage.repository import ScanRepository
 
 logger = logging.getLogger(__name__)
@@ -57,7 +52,7 @@ class SourceScannerPlugin(Plugin):
         3. Clone repository (RepoFetcher)
         4. Detect languages (LanguageDetector)
         5. Run scanners (Semgrep, Bandit)
-        6. Normalize findings (ParserNormalizer)
+        6. Normalize findings (FindingNormalizer)
         7. Calculate summary
         8. Evaluate policy (PolicyChecker)
         9. Store results (if enabled)
@@ -75,14 +70,14 @@ class SourceScannerPlugin(Plugin):
         self._cfg = SourceScannerConfig(**(config.config or {}))
 
         # Initialize components
-        # TODO: Uncomment when components are implemented
-        # self._repo_fetcher = RepoFetcher()
-        # self._language_detector = LanguageDetector()
-        # self._semgrep_runner = SemgrepRunner()
-        # self._bandit_runner = BanditRunner()
-        # self._normalizer = ParserNormalizer()
+        self._repo_fetcher = RepoFetcher()
+        self._language_detector = LanguageDetector()
+        self._semgrep_runner = SemgrepRunner(self._cfg.semgrep)
+        self._bandit_runner = BanditRunner(self._cfg.bandit)
+        self._normalizer = FindingNormalizer()
         self._policy_checker = PolicyChecker()
-        # self._scan_repo_store = ScanRepository() if self._cfg.cache_by_commit else None
+        # Storage disabled until database integration is complete
+        # self._scan_repo_store = ScanRepository(db) if self._cfg.cache_by_commit else None
 
         logger.info(
             "SourceScannerPlugin initialized",
@@ -93,6 +88,24 @@ class SourceScannerPlugin(Plugin):
                 "fail_on_critical": self._cfg.fail_on_critical,
             },
         )
+
+    async def scan(
+        self,
+        repo_url: str,
+        ref: Optional[str] = None,
+    ) -> ScanResult:
+        """Public method to scan a repository directly.
+
+        Use this for testing/standalone operation until gateway hooks are implemented.
+
+        Args:
+            repo_url: Repository URL to scan.
+            ref: Branch/tag/commit reference.
+
+        Returns:
+            Complete scan results.
+        """
+        return await self._scan_workflow(repo_url, ref)
 
     async def _scan_workflow(
         self,
@@ -117,23 +130,27 @@ class SourceScannerPlugin(Plugin):
 
         try:
             # Step 1: Check cache (if enabled)
-            # TODO: if self._cfg.cache_by_commit and self._scan_repo_store:
-            #           cached = await self._scan_repo_store.get_by_commit(repo_url, commit_sha)
-            #           if cached and not expired:
-            #               return cached
+            # TODO: Implement when database integration is ready
+            # if self._cfg.cache_by_commit and self._scan_repo_store:
+            #     cached = await self._scan_repo_store.get_by_commit(repo_url, commit_sha)
+            #     if cached and not expired:
+            #         logger.info("Using cached scan results")
+            #         return cached
 
             # Step 2: Clone & Checkout
-            # TODO: workspace, cleanup_fn = await self._repo_fetcher.fetch(
-            #           repo_url=repo_url,
-            #           ref=ref,
-            #           clone_timeout=self._cfg.clone_timeout_seconds,
-            #           max_size_mb=self._cfg.max_repo_size_mb,
-            #       )
-            # TODO: commit_sha = workspace.commit_sha
+            github_token = os.environ.get(self._cfg.github_token_env)
+            workspace, cleanup_fn = await self._repo_fetcher.fetch(
+                repo_url=repo_url,
+                ref=ref,
+                clone_timeout=self._cfg.clone_timeout_seconds,
+                max_size_mb=self._cfg.max_repo_size_mb,
+                github_token=github_token,
+            )
+            commit_sha = workspace.commit_sha
 
             # Step 3: Detect languages
-            # TODO: languages = self._language_detector.detect(workspace.path)
-            languages = []  # placeholder
+            languages = self._language_detector.detect(workspace.path)
+            logger.info(f"Detected languages: {languages}")
 
             # Step 4: Run scanners
             findings_by_scanner: list[list[Finding]] = []
@@ -141,26 +158,26 @@ class SourceScannerPlugin(Plugin):
             # Run Semgrep (if enabled)
             if self._cfg.semgrep.enabled:
                 logger.info("Running Semgrep scanner")
-                # TODO: findings = await self._semgrep_runner.run(
-                #           repo_path=workspace.path,
-                #           config=self._cfg.semgrep,
-                #           timeout_s=self._cfg.scan_timeout_seconds,
-                #       )
-                # TODO: findings_by_scanner.append(findings)
+                semgrep_findings = await self._semgrep_runner.run(
+                    repo_path=workspace.path,
+                    timeout_s=self._cfg.scan_timeout_seconds,
+                )
+                findings_by_scanner.append(semgrep_findings)
+                logger.info(f"Semgrep found {len(semgrep_findings)} issues")
 
             # Run Bandit (if Python detected and enabled)
             if "python" in languages and self._cfg.bandit.enabled:
                 logger.info("Running Bandit scanner")
-                # TODO: findings = await self._bandit_runner.run(
-                #           repo_path=workspace.path,
-                #           config=self._cfg.bandit,
-                #           timeout_s=self._cfg.scan_timeout_seconds,
-                #       )
-                # TODO: findings_by_scanner.append(findings)
+                bandit_findings = await self._bandit_runner.run(
+                    repo_path=workspace.path,
+                    timeout_s=self._cfg.scan_timeout_seconds,
+                )
+                findings_by_scanner.append(bandit_findings)
+                logger.info(f"Bandit found {len(bandit_findings)} issues")
 
             # Step 5: Merge & Deduplicate
-            # TODO: merged_findings = self._normalizer.merge_dedup(findings_by_scanner)
-            merged_findings = []  # placeholder
+            merged_findings = self._normalizer.merge_dedup(findings_by_scanner)
+            logger.info(f"Total unique findings after deduplication: {len(merged_findings)}")
 
             # Step 6: Calculate summary
             summary = ScanSummary(
@@ -189,7 +206,7 @@ class SourceScannerPlugin(Plugin):
             result = ScanResult(
                 repo_url=repo_url,
                 ref=ref,
-                commit_sha=None,  # TODO: workspace.commit_sha
+                commit_sha=commit_sha,
                 languages=languages,
                 findings=merged_findings,
                 summary=summary,
@@ -198,14 +215,17 @@ class SourceScannerPlugin(Plugin):
             )
 
             # Step 9: Store results (if cache enabled)
-            # TODO: if self._cfg.cache_by_commit and self._scan_repo_store:
-            #           await self._scan_repo_store.save(result)
+            # TODO: Implement when database integration is ready
+            # if self._cfg.cache_by_commit and self._scan_repo_store:
+            #     await self._scan_repo_store.save(result)
+            #     logger.info("Scan results cached")
 
             logger.info(
                 "Scan complete",
                 extra={
                     "blocked": result.blocked,
                     "findings_count": len(result.findings),
+                    "commit_sha": commit_sha,
                 },
             )
 
@@ -226,12 +246,52 @@ class SourceScannerPlugin(Plugin):
                 except Exception as e:
                     logger.warning(f"Cleanup failed: {e}")
 
-    async def server_pre_register(
+    # ============================================================
+    # GATEWAY HOOKS - NOT YET IMPLEMENTED IN GATEWAY
+    # ============================================================
+    # These hooks are documented in the gateway but not yet called.
+    # Uncomment when gateway implements server_pre_register and catalog_pre_deploy hooks.
+    #
+    # async def server_pre_register(self, payload, context) -> dict:
+    #     """Hook for server registration (NOT YET IMPLEMENTED IN GATEWAY)."""
+    #     logger.info("server_pre_register hook triggered")
+    #     repo_url = payload.get("server", {}).get("source", {}).get("repo")
+    #     ref = payload.get("server", {}).get("source", {}).get("ref")
+    #
+    #     if not repo_url:
+    #         logger.warning("No repo_url in payload, allowing registration")
+    #         return {"continue_processing": True}
+    #
+    #     result = await self.scan(repo_url, ref)
+    #
+    #     if result.blocked:
+    #         return {
+    #             "continue_processing": False,
+    #             "violation": {
+    #                 "reason": "Security vulnerabilities detected",
+    #                 "description": result.block_reason,
+    #                 "code": "SOURCE_SCAN_BLOCKED",
+    #                 "details": {
+    #                     "findings_count": len(result.findings),
+    #                     "error_count": result.summary.error_count,
+    #                 },
+    #             },
+    #         }
+    #
+    #     return {"continue_processing": True}
+    #
+    # async def catalog_pre_deploy(self, payload, context) -> dict:
+    #     """Hook for catalog deployment (NOT YET IMPLEMENTED IN GATEWAY)."""
+    #     logger.info("catalog_pre_deploy hook triggered")
+    #     # Similar implementation to server_pre_register
+    #     return {"continue_processing": True}
+
+    """async def server_pre_register(
         self,
         payload: ServerPreRegisterPayload,
         context: PluginContext,
     ) -> ServerPreRegisterResult:
-        """Scan source code before server registration.
+        Scan source code before server registration.
 
         Args:
             payload: Server registration payload.
@@ -239,7 +299,7 @@ class SourceScannerPlugin(Plugin):
 
         Returns:
             Result blocking if critical findings exist, or allowing.
-        """
+        
         logger.info("server_pre_register hook triggered")
 
         try:
@@ -293,7 +353,7 @@ class SourceScannerPlugin(Plugin):
         payload: CatalogPreDeployPayload,
         context: PluginContext,
     ) -> CatalogPreDeployResult:
-        """Scan source code before catalog deployment.
+        Scan source code before catalog deployment.
 
         Args:
             payload: Catalog deployment payload.
@@ -301,7 +361,6 @@ class SourceScannerPlugin(Plugin):
 
         Returns:
             Result blocking if critical findings exist, or allowing.
-        """
         logger.info("catalog_pre_deploy hook triggered")
 
         try:
@@ -344,4 +403,4 @@ class SourceScannerPlugin(Plugin):
         except Exception as e:
             logger.error(f"catalog_pre_deploy failed: {e}", exc_info=True)
             # Fail open: allow deployment but log error
-            return CatalogPreDeployResult(continue_processing=True)
+            return CatalogPreDeployResult(continue_processing=True)"""

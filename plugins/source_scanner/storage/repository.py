@@ -20,8 +20,8 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 # First-Party
+from plugins.source_scanner.models import Finding
 from plugins.source_scanner.storage.models import FindingRecord, ScanRecord
-from plugins.source_scanner.types import Finding
 
 #
 
