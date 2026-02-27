@@ -97,7 +97,7 @@ class catalog:
                     writer.writerow(server_data)
         elif format == "pdf":
             pdf_doc = FPDF()
-            pdf_doc.add_page()
+            pdf_doc.add_page() 
             pdf_doc.set_font("Arial", size=12)
             for _, server_data in data.items():
                 pdf_doc.cell(0, 10, f"Server: {server_data.get('name', 'Unknown')}", ln=True)
