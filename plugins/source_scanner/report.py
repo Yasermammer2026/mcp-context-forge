@@ -63,3 +63,8 @@ class Report:
             else:
                 ordered[finding.severity][finding.rule_id] += 1
         return ordered
+    
+    def detailed(self) -> List[Finding]:
+        """gives the Findings in details"""
+        
+        return self.findings
