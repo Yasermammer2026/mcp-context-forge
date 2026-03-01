@@ -97,18 +97,6 @@ class catalog:
                 writer.writeheader()
                 for server_data in data.values():
                     writer.writerow(server_data)
-<<<<<<< Updated upstream
-        elif format == "pdf":
-            pdf_doc = FPDF()
-            pdf_doc.add_page() 
-            pdf_doc.set_font("Arial", size=12)
-            for _, server_data in data.items():
-                pdf_doc.cell(0, 10, f"Server: {server_data.get('name', 'Unknown')}", ln=True)
-                for key, value in server_data.items():
-                    pdf_doc.cell(0, 10, f"  {key}: {value}", ln=True)
-                pdf_doc.cell(0, 10, "", ln=True)
-            pdf_doc.output(f"{path}{filename}.pdf")
-=======
         elif format == "pdf":               # made with help of AI
             # pdf_doc = FPDF()
             # pdf_doc.add_page()
@@ -120,6 +108,5 @@ class catalog:
             #     pdf_doc.cell(0, 10, "", ln=True)
             # pdf_doc.output(f"{expo_path}{filename}.pdf")
             pass
->>>>>>> Stashed changes
         else:
             raise ValueError(f"Unsupported export format: {format}")
